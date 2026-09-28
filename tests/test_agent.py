@@ -231,4 +231,16 @@ async def test_title_summary_deduplication_in_digest():
     assert "*(Houston Chronicle)* — Mayor Whitmire announces new Houston infrastructure plan" not in overview_md
 
 
+def test_clean_question_headline():
+    config_mgr = ConfigManager()
+    agent = NewsAnalystAgent(config_manager=config_mgr)
+
+    assert agent.clean_question_headline("What to know about recent AI hacks") == "Recent AI hacks"
+    assert agent.clean_question_headline("Everything you need to know about Nvidia Blackwell Ultra?") == "Nvidia Blackwell Ultra"
+    assert agent.clean_question_headline("Why did the Federal Reserve cut rates?") == "The Federal Reserve cut rates"
+    assert agent.clean_question_headline("Here's how quantum computing is evolving") == "Quantum computing is evolving"
+    assert agent.clean_question_headline("Standard declarative headline about tech") == "Standard declarative headline about tech"
+
+
+
 

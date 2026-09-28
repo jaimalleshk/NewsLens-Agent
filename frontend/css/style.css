@@ -624,6 +624,136 @@ body {
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
 }
 
+/* Twitter / X Style Intelligence Tweet Post Cards */
+.tweet-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: all 0.2s ease-in-out;
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+
+.tweet-card:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(26, 35, 52, 0.95);
+  transform: translateY(-1px);
+}
+
+.tweet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tweet-author-info {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tweet-topic-icon {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tweet-publisher-name {
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.tweet-handle {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.tweet-dot {
+  color: var(--text-muted);
+}
+
+.tweet-date {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.tweet-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn-tweet-action {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none;
+}
+
+.btn-tweet-action:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-cyan);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.tweet-body {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+
+.tweet-body strong {
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+.tweet-intel-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed var(--border-color);
+}
+
+.intel-metric-pill {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #cbd5e1;
+}
+
+.intel-metric-pill span {
+  font-weight: 700;
+  color: var(--accent-cyan);
+  margin-right: 0.25rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
 /* Compact 1-Line Card Styling */
 .news-card.compact-item {
   padding: 0.75rem 1rem;

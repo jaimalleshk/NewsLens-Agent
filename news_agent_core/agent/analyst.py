@@ -406,7 +406,9 @@ class NewsAnalystAgent:
                 overview_blocks.append(f"#### {res.topic_icon} {res.topic_title} ({len(res.items)} Developments)")
                 for it in res.items:
                     clean_what = it.summary.line1_what.strip() if it.summary else ""
-                    clean_title = it.title.strip()
+                    clean_title = self.clean_question_headline(it.title).strip()
+                    publisher = it.publisher or "Verified Source"
+
                     # Check if title and clean_what are redundant
                     norm_t = re.sub(r"[^\w\s]", "", clean_title.lower()).strip()
                     norm_w = re.sub(r"[^\w\s]", "", clean_what.lower()).strip()
@@ -415,13 +417,13 @@ class NewsAnalystAgent:
                     overlap = len(words_t.intersection(words_w))
                     is_dup = (
                         norm_t == norm_w
-                        or (words_t and words_w and (overlap / min(len(words_t), len(words_w))) >= 0.8)
+                        or (words_t and words_w and (overlap / min(len(words_t), len(words_w))) >= 0.7)
                         or (norm_t in norm_w or norm_w in norm_t)
                     )
                     if is_dup or not clean_what:
-                        overview_blocks.append(f"• **{it.title}** *({it.publisher})*")
+                        overview_blocks.append(f"• **{clean_title}** *({publisher})*")
                     else:
-                        overview_blocks.append(f"• **{it.title}** *({it.publisher})* — {clean_what}")
+                        overview_blocks.append(f"• **{clean_title}** *({publisher})* — {clean_what}")
                 overview_blocks.append("")
             else:
                 overview_blocks.append(f"#### {res.topic_icon} {res.topic_title} (0 Developments)")

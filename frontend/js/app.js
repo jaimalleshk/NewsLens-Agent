@@ -342,8 +342,8 @@ class NewsLensApp {
     const dividerLabel = document.getElementById("overviewStoriesDividerLabel");
     if (dividerLabel) {
       dividerLabel.textContent = mode === "compact"
-        ? "TOP STORIES ACROSS ALL TOPICS (1-LINE VIEW)"
-        : "TOP STORIES ACROSS ALL TOPICS (FULL 5-LINE ANALYSIS)";
+        ? "TOP INTELLIGENCE TWEETS ACROSS ALL TOPICS (FEED VIEW)"
+        : "TOP INTELLIGENCE TWEETS ACROSS ALL TOPICS (DETAILED INTEL VIEW)";
     }
 
     // Re-render active pane with new view mode
@@ -780,79 +780,95 @@ class NewsLensApp {
     return overlapRatio >= 0.7;
   }
 
+  buildSpokenScriptForTopic(topicRes) {
+    if (!topicRes) return "";
+    if (topicRes.executive_audio_script && topicRes.executive_audio_script.length > 50) {
+      return topicRes.executive_audio_script;
+    }
+    if (!topicRes.items || topicRes.items.length === 0) {
+      return `No major news stories were identified for ${topicRes.topic_title} in the selected time period.`;
+    }
+
+    const transitions = [
+      "Leading off,",
+      "Next in reporting,",
+      "Turning to another key development,",
+      "Meanwhile,",
+      "Also developing,",
+      "Looking further,"
+    ];
+
+    const cleanTopicName = topicRes.topic_title.replace(/^[^\w\s]+/, "").trim();
+    const segments = [`In ${cleanTopicName} developments:`];
+
+    topicRes.items.forEach((it, idx) => {
+      const trans = idx === 0 ? "" : transitions[(idx - 1) % transitions.length];
+      const speech = it.natural_speech || it.summary?.line1_what || this.cleanHeadline(it.title);
+      segments.push(`${trans} ${speech.trim()}`.trim());
+    });
+
+    segments.push(`That concludes updates for ${cleanTopicName}.`);
+    return segments.join(" ");
+  }
+
   createNewsCardElement(item, topicRes) {
     const card = document.createElement("article");
     const s = item.summary;
-    const isCompact = this.viewMode === "compact";
+    const isDetailed = this.viewMode === "full";
     const cleanTitle = this.cleanHeadline(item.title);
     const lineWhat = (s && s.line1_what) ? s.line1_what.trim() : "";
     const isDuplicate = this.isTitleAndSummaryDuplicate(cleanTitle, lineWhat);
 
-    // High-density single analyzed sentence (30-50 words)
-    let singleAnalyzedLine = "";
+    // Compute standalone high-signal intelligence tweet (~35-50 words)
+    let tweetBodyText = "";
     if (lineWhat && !isDuplicate) {
-      singleAnalyzedLine = `<strong>${cleanTitle}</strong> — <span class="story-desc">${lineWhat}</span>`;
+      if (lineWhat.length >= 80) {
+        tweetBodyText = lineWhat;
+      } else {
+        tweetBodyText = `<strong>${cleanTitle}</strong> — ${lineWhat}`;
+      }
     } else if (lineWhat) {
-      singleAnalyzedLine = `<strong>${lineWhat}</strong>`;
+      tweetBodyText = lineWhat;
     } else {
-      singleAnalyzedLine = `<strong>${cleanTitle}</strong>`;
+      tweetBodyText = cleanTitle;
     }
 
-    if (isCompact) {
-      // 1-Line Analyzed Intelligence View (30-50 words converged analytical takeaway with zero title repetition)
-      card.className = "news-card compact-item";
-      card.innerHTML = `
-        <div class="compact-row">
-          <div class="compact-main">
-            <div class="compact-headline-line">
-              ${singleAnalyzedLine}
-            </div>
-            <div class="compact-meta">
-              <span class="source-badge">${item.publisher}</span>
-              <span class="pub-date">${item.published_date}</span>
-            </div>
-          </div>
-          <div class="compact-actions">
-            <button class="btn-card-audio" title="Read Aloud Analysis">🔊</button>
-            <a href="${item.url}" target="_blank" rel="noopener" class="card-source-link" title="Open Source">
-              Source ↗
-            </a>
-          </div>
-        </div>
-      `;
-    } else {
-      // 5-Lines Analysis View
-      card.className = "news-card";
-      const summaryText = lineWhat || cleanTitle;
-      card.innerHTML = `
-        <div class="card-header">
-          <div class="card-meta-row">
-            <span class="source-badge">${item.publisher}</span>
-            <span class="pub-date">${item.published_date}</span>
-          </div>
-          <h3 class="card-title">${cleanTitle}</h3>
-        </div>
+    const topicIcon = topicRes?.topic_icon || "📰";
+    const publisher = item.publisher || "Verified Intelligence";
+    const handle = publisher.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-        <div class="card-story-summary">
-          <strong>Analyzed Takeaway:</strong> ${summaryText}
+    card.className = "tweet-card";
+    card.innerHTML = `
+      <div class="tweet-header">
+        <div class="tweet-author-info">
+          <span class="tweet-topic-icon">${topicIcon}</span>
+          <span class="tweet-publisher-name">${publisher}</span>
+          <span class="tweet-handle">@${handle || 'intel'}</span>
+          <span class="tweet-dot">·</span>
+          <span class="tweet-date">${item.published_date || ''}</span>
         </div>
-
-        ${s && s.line2_context ? `
-        <div class="card-5lines-breakdown">
-          <p><strong>Context:</strong> ${s.line2_context}</p>
-          <p><strong>Impact:</strong> ${s.line3_impact}</p>
-          <p><strong>Key Data:</strong> ${s.line4_data}</p>
-          <p><strong>Outlook:</strong> ${s.line5_outlook}</p>
-        </div>` : ""}
-
-        <div class="card-footer">
-          <button class="btn-card-audio">🔊 Read Aloud</button>
-          <a href="${item.url}" target="_blank" rel="noopener" class="card-source-link">
-            Source Article ↗
+        <div class="tweet-top-actions">
+          <button class="btn-tweet-action btn-card-audio" title="Read Aloud Analysis">
+            <span>🔊</span>
+          </button>
+          <a href="${item.url}" target="_blank" rel="noopener" class="btn-tweet-action" title="Open Source Article">
+            <span>🔗 Source ↗</span>
           </a>
         </div>
-      `;
-    }
+      </div>
+
+      <div class="tweet-body">
+        ${tweetBodyText}
+      </div>
+
+      ${isDetailed && s && s.line2_context ? `
+      <div class="tweet-intel-breakdown">
+        <div class="intel-metric-pill"><span>Context:</span> ${s.line2_context}</div>
+        <div class="intel-metric-pill"><span>Impact:</span> ${s.line3_impact}</div>
+        <div class="intel-metric-pill"><span>Key Data:</span> ${s.line4_data}</div>
+        <div class="intel-metric-pill"><span>Outlook:</span> ${s.line5_outlook}</div>
+      </div>` : ''}
+    `;
 
     // Read Aloud click event
     const btnAudio = card.querySelector(".btn-card-audio");

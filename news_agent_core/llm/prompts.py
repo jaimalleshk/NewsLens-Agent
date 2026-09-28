@@ -17,21 +17,21 @@ Content:
 {article_content}
 
 YOUR TASK:
-Produce an ultra-precise executive intelligence breakdown adhering STRICTLY to this JSON format:
+Synthesize this news story into a punchy, high-signal Twitter/X-style intelligence post (35-50 words / ~240 characters) that gives the FULL picture in one standalone message. Adhere strictly to this JSON format:
 {{
-  "title": "Clear, declarative, factual executive headline statement explaining who did what and the outcome.",
-  "line1_what": "A comprehensive, converged analytical summary (30-50 words) delivering the complete synthesized intelligence, key entities, numbers/dollars, and takeaways so the reader never needs to read the source article.",
+  "title": "Clear, declarative executive statement explaining who did what and the outcome.",
+  "line1_what": "A self-contained, high-impact Twitter/X-style intelligence post (35-50 words) delivering the complete picture: key entity, concrete metrics/dollar values, core action, and why it matters so the reader never needs to click or read the article.",
   "line2_context": "Root cause, backstory, or underlying market/technological drivers.",
   "line3_impact": "Direct strategic implication for the industry, economy, or ecosystem.",
   "line4_data": "Key metric, concrete figure, notable quote, or specific specification.",
   "line5_outlook": "Next milestone, expected timeline, or critical indicator to watch.",
-  "natural_speech": "One articulate, high-density broadcast sentence (30-45 words) delivering the complete analyzed news finding in a natural news anchor flow without repeating headline words."
+  "natural_speech": "One articulate, high-density broadcast sentence (35-45 words) delivering the complete analyzed news finding in a natural news anchor flow without repeating headline words."
 }}
 
 CRITICAL RULES:
-- NEVER write titles as questions or clickbait teasers (e.g. NEVER 'What to know about...', 'How to...', 'Why is...', '5 things to know'). Always write declarative factual statements.
-- Line 1 MUST be a 30 to 50 word rich, converged analytical statement that completely explains the event, actors, metrics, and significance.
-- NEVER repeat the title text inside line1_what or natural_speech. Each field must add distinct value.
+- FORMAT AS A COMPLETE TWITTER-STYLE INTELLIGENCE POST: Deliver the full story in a single, high-density, analytical message.
+- NEVER use question formats or clickbait teasers (e.g. NEVER 'What to know about...', 'How to...', 'Why is...', '5 things to know'). Always write declarative factual statements.
+- Line 1 MUST be a 35 to 50 word rich, converged analytical statement that completely explains the event, actors, metrics, and significance.
 - Maintain maximum precision and density of insight without fluff.
 - Output ONLY valid JSON.
 """
