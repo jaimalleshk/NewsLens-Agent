@@ -57,42 +57,49 @@ class NewsAnalystAgent:
         end_date: str,
         max_articles: int = 15
     ) -> List[RawArticle]:
-        """Search and extract articles for a specific topic across configured backends."""
+        """Search and extract articles for a specific topic concurrently across configured backends."""
         queries = topic.search_queries or [topic.title]
         collected: Dict[str, RawArticle] = {}
 
-        for query in queries[:4]:
-            # Fetch from RSS (Google News)
-            rss_results = await self.rss_search.search(
-                query=query,
-                start_date=start_date,
-                end_date=end_date,
-                max_results=max_articles,
-                topic_id=topic.id
+        async def run_single_query(query: str):
+            res_rss, res_ddg = await asyncio.gather(
+                self.rss_search.search(
+                    query=query,
+                    start_date=start_date,
+                    end_date=end_date,
+                    max_results=max_articles,
+                    topic_id=topic.id
+                ),
+                self.ddg_search.search(
+                    query=query,
+                    start_date=start_date,
+                    end_date=end_date,
+                    max_results=max_articles,
+                    topic_id=topic.id
+                ),
+                return_exceptions=True
             )
-            for art in rss_results:
-                if art.id not in collected:
-                    collected[art.id] = art
+            items = []
+            if isinstance(res_rss, list):
+                items.extend(res_rss)
+            if isinstance(res_ddg, list):
+                items.extend(res_ddg)
+            return items
 
-            # Fetch from DuckDuckGo News
-            ddg_results = await self.ddg_search.search(
-                query=query,
-                start_date=start_date,
-                end_date=end_date,
-                max_results=max_articles,
-                topic_id=topic.id
-            )
-            for art in ddg_results:
-                if art.id not in collected:
-                    collected[art.id] = art
+        # Execute all search queries in parallel concurrently
+        query_tasks = [run_single_query(q) for q in queries[:4]]
+        results_lists = await asyncio.gather(*query_tasks, return_exceptions=True)
 
-            if len(collected) >= max_articles * 2:
-                break
+        for res in results_lists:
+            if isinstance(res, list):
+                for art in res:
+                    if art.id not in collected:
+                        collected[art.id] = art
 
         article_list = list(collected.values())[:max_articles * 2]
 
         # Extract full content concurrently only for top articles needing body text
-        top_to_enrich = [a for a in article_list if not a.content or len(a.content) < 80][:5]
+        top_to_enrich = [a for a in article_list if not a.content or len(a.content) < 80][:4]
         async def enrich(art: RawArticle):
             body = await self.extractor.extract(art.url)
             if body:
@@ -101,6 +108,7 @@ class NewsAnalystAgent:
         if top_to_enrich:
             await asyncio.gather(*(enrich(a) for a in top_to_enrich), return_exceptions=True)
         return article_list
+
 
     def _fast_extractive_summary(
         self,
@@ -442,7 +450,7 @@ REQUIREMENTS:
         self,
         start_date: str,
         end_date: str,
-        concurrency_limit: int = 4
+        concurrency_limit: int = 8
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """Stream news intelligence aggregation in real-time as each topic finishes."""
         self.reload_config()

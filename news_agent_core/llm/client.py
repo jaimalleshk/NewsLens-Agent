@@ -15,8 +15,19 @@ logger = logging.getLogger(__name__)
 class UnifiedLLMClient:
     """Client for generating completions from DeepSeek or Local Ollama endpoints."""
 
+    _http_client: Optional[httpx.AsyncClient] = None
+
     def __init__(self, config: LLMConfig):
         self.config = config
+
+    @classmethod
+    def _get_shared_client(cls, timeout_sec: float) -> httpx.AsyncClient:
+        if cls._http_client is None or cls._http_client.is_closed:
+            cls._http_client = httpx.AsyncClient(
+                timeout=timeout_sec,
+                limits=httpx.Limits(max_keepalive_connections=25, max_connections=50, keepalive_expiry=30.0)
+            )
+        return cls._http_client
 
     def _get_active_url_and_headers(self) -> tuple[str, Dict[str, str], str]:
         """Resolve endpoint URL, headers, and model name based on provider."""
@@ -41,7 +52,8 @@ class UnifiedLLMClient:
         prompt: str,
         system_prompt: str = "You are an expert news intelligence analyst.",
         temperature: Optional[float] = None,
-        json_mode: bool = False
+        json_mode: bool = False,
+        max_tokens: Optional[int] = None
     ) -> str:
         """Call the configured LLM endpoint."""
         # If online DeepSeek is selected without an API key, use immediate smart extractive synthesis
@@ -50,6 +62,7 @@ class UnifiedLLMClient:
 
         url, headers, model = self._get_active_url_and_headers()
         temp = temperature if temperature is not None else self.config.temperature
+        tokens = max_tokens or (800 if json_mode else self.config.max_tokens)
 
         payload: Dict[str, Any] = {
             "model": model,
@@ -58,28 +71,29 @@ class UnifiedLLMClient:
                 {"role": "user", "content": prompt}
             ],
             "temperature": temp,
-            "max_tokens": self.config.max_tokens
+            "max_tokens": tokens
         }
 
         if json_mode and self.config.provider != "local":
             payload["response_format"] = {"type": "json_object"}
 
-        timeout_sec = 45.0 if self.config.provider.lower() == "local" else 30.0
+        timeout_sec = 45.0 if self.config.provider.lower() == "local" else 25.0
         try:
-            async with httpx.AsyncClient(timeout=timeout_sec) as client:
-                resp = await client.post(url, headers=headers, json=payload)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    choices = data.get("choices", [])
-                    if choices:
-                        return choices[0].get("message", {}).get("content", "").strip()
-                else:
-                    logger.warning(f"LLM API returned status {resp.status_code}: {resp.text}")
+            client = self._get_shared_client(timeout_sec)
+            resp = await client.post(url, headers=headers, json=payload, timeout=timeout_sec)
+            if resp.status_code == 200:
+                data = resp.json()
+                choices = data.get("choices", [])
+                if choices:
+                    return choices[0].get("message", {}).get("content", "").strip()
+            else:
+                logger.warning(f"LLM API returned status {resp.status_code}: {resp.text}")
         except Exception as e:
             logger.warning(f"LLM request error ({self.config.provider}): {e}")
 
         # Fallback to analytical extractor if API call failed
         return self._heuristic_fallback(prompt, json_mode)
+
 
     def _heuristic_fallback(self, prompt: str, json_mode: bool) -> str:
         """Heuristic rule-based fallback if remote/local LLM is unreachable."""
