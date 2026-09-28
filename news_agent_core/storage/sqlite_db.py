@@ -176,23 +176,106 @@ class SQLiteNewsCache:
                 SELECT digest_json FROM aggregated_digests WHERE digest_id = ?
             """, (digest_id,))
             row = cur.fetchone()
-            if not row:
-                return None
-            data = json.loads(row["digest_json"])
-            return AggregatedNewsDigest.model_validate(data)
+            if row:
+                data = json.loads(row["digest_json"])
+                return AggregatedNewsDigest.model_validate(data)
+
+            # Fallback: check if topic_results exist for this date range
+            cur_topics = conn.execute("""
+                SELECT * FROM topic_results
+                WHERE start_date = ? AND end_date = ?
+                ORDER BY cached_at DESC
+            """, (start_date, end_date))
+            rows = cur_topics.fetchall()
+            if rows:
+                seen_topics = set()
+                topic_results = []
+                for r in rows:
+                    tid = r["topic_id"]
+                    if tid in seen_topics:
+                        continue
+                    seen_topics.add(tid)
+                    items_raw = json.loads(r["items_json"]) if r["items_json"] else []
+                    items = [NewsItem.model_validate(it) for it in items_raw]
+                    topic_results.append(TopicNewsResult(
+                        topic_id=r["topic_id"],
+                        topic_title=r["topic_title"],
+                        topic_icon=r["topic_icon"],
+                        strategy_applied=r["strategy_applied"],
+                        start_date=r["start_date"],
+                        end_date=r["end_date"],
+                        items=items,
+                        executive_audio_script=r["executive_audio_script"]
+                    ))
+                if topic_results:
+                    return AggregatedNewsDigest(
+                        generated_at=datetime.now(timezone.utc).isoformat(),
+                        start_date=start_date,
+                        end_date=end_date,
+                        executive_overview=f"Executive cross-sector intelligence digest across {len(topic_results)} monitored topics.",
+                        executive_audio_script="",
+                        topic_results=topic_results,
+                        total_articles_indexed=sum(len(t.items) for t in topic_results)
+                    )
+            return None
 
     def get_latest_digest(self) -> Optional[AggregatedNewsDigest]:
-        """Retrieve the most recently cached AggregatedNewsDigest from SQLite."""
+        """Retrieve the most recently cached AggregatedNewsDigest from SQLite or construct from latest topic_results."""
         with self._get_connection() as conn:
             cur = conn.execute("""
                 SELECT digest_json FROM aggregated_digests 
                 ORDER BY created_at DESC LIMIT 1
             """)
             row = cur.fetchone()
-            if not row:
+            if row:
+                data = json.loads(row["digest_json"])
+                return AggregatedNewsDigest.model_validate(data)
+
+            # Fallback: assemble from most recent topic_results table
+            cur_topics = conn.execute("""
+                SELECT * FROM topic_results
+                ORDER BY cached_at DESC
+            """)
+            rows = cur_topics.fetchall()
+            if not rows:
                 return None
-            data = json.loads(row["digest_json"])
-            return AggregatedNewsDigest.model_validate(data)
+
+            seen_topics = set()
+            topic_results = []
+            s_date = ""
+            e_date = ""
+            for r in rows:
+                tid = r["topic_id"]
+                if tid in seen_topics:
+                    continue
+                seen_topics.add(tid)
+                s_date = s_date or r["start_date"]
+                e_date = e_date or r["end_date"]
+                items_raw = json.loads(r["items_json"]) if r["items_json"] else []
+                items = [NewsItem.model_validate(it) for it in items_raw]
+                topic_results.append(TopicNewsResult(
+                    topic_id=r["topic_id"],
+                    topic_title=r["topic_title"],
+                    topic_icon=r["topic_icon"],
+                    strategy_applied=r["strategy_applied"],
+                    start_date=r["start_date"],
+                    end_date=r["end_date"],
+                    items=items,
+                    executive_audio_script=r["executive_audio_script"]
+                ))
+
+            if not topic_results:
+                return None
+
+            return AggregatedNewsDigest(
+                generated_at=datetime.now(timezone.utc).isoformat(),
+                start_date=s_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                end_date=e_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                executive_overview=f"Executive cross-sector intelligence digest across {len(topic_results)} monitored topics.",
+                executive_audio_script="",
+                topic_results=topic_results,
+                total_articles_indexed=sum(len(t.items) for t in topic_results)
+            )
 
     def clear_cache(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> None:
         """Clear cached entries, optionally filtered by date range."""

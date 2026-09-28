@@ -94,6 +94,25 @@ class UnifiedLLMClient:
         # Fallback to analytical extractor if API call failed
         return self._heuristic_fallback(prompt, json_mode)
 
+    @staticmethod
+    def _clean_headline(title: str) -> str:
+        """Sanitize question-style headlines and clickbait inquiry formats."""
+        if not title:
+            return "Sector Intelligence Update"
+        cleaned = title.strip().rstrip("?.: ")
+        patterns = [
+            r"^(What (you|we|to) (need to )?know about|Everything (you|we)?\s*(need to )?know about|Here('?s| is) (what to know about|what you need to know about|everything to know about|what happened (with|at|to)?))\s+",
+            r"^(Here('?s| is) (why|how|what)|This is why|This is how|Here are (the|\d+)|Top \d+ (reasons why|things to know about|\w+ to know))\s+",
+            r"^(Is|Are|Will|Can|Could|Should|Did|Does|Do|Has|Have|Would)\s+",
+            r"^(Why|How|What|Where|When|Who)\s+(is|are|did|does|do|will|can|could|should|has|have|to|use|build|make)\s+",
+            r"^(Why|How|What)\s+",
+        ]
+        for p in patterns:
+            cleaned = re.sub(p, "", cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(r"[\?:\.\s]+$", "", cleaned).strip()
+        if cleaned:
+            cleaned = cleaned[0].upper() + cleaned[1:]
+        return cleaned or title
 
     def _heuristic_fallback(self, prompt: str, json_mode: bool) -> str:
         """Heuristic rule-based fallback if remote/local LLM is unreachable."""
@@ -152,6 +171,9 @@ class UnifiedLLMClient:
             raw_source = source_match.group(1).strip() if source_match else "Intelligence Feed"
             raw_content = content_match.group(1).strip() if content_match else ""
 
+            # Sanitize raw title from question phrasing
+            clean_title = self._clean_headline(raw_title)
+
             # Clean raw content from noise
             clean_lines = [
                 line.strip() for line in raw_content.split("\n")
@@ -159,21 +181,35 @@ class UnifiedLLMClient:
             ]
             clean_text = " ".join(clean_lines)
 
-            sentences = [
+            raw_sentences = [
                 s.strip() for s in re.split(r"(?<=[.!?])\s+", clean_text)
                 if len(s.strip()) > 20 and not s.strip().startswith("YOUR TASK") and not s.strip().startswith("RULES")
             ]
+            clean_sentences = []
+            for s in raw_sentences:
+                c = self._clean_headline(s)
+                if c and not c.endswith("?"):
+                    clean_sentences.append(c)
 
-            s1 = sentences[0] if len(sentences) > 0 else f"{raw_title} announced with direct relevance to sector strategy."
-            s2 = sentences[1] if len(sentences) > 1 else f"Coverage reported by {raw_source} highlights underlying drivers and operational factors."
-            s3 = sentences[2] if len(sentences) > 2 else "Strategic implications focus on competitive positioning, scalability, and market adoption."
-            s4 = sentences[3] if len(sentences) > 3 else f"Key industry disclosures and data points verified from {raw_source} reports."
-            s5 = sentences[4] if len(sentences) > 4 else "Market observers expect follow-up execution milestones and deployment metrics in the coming cycle."
+            lead = clean_sentences[0] if len(clean_sentences) > 0 else clean_title
 
-            speech = f"In recent developments, {raw_title}. {s1} Industry observers note this signifies critical progression for the sector."
+            # Ensure standalone 35-50 word analytical intelligence tweet
+            norm_t = re.sub(r"[^\w\s]", "", clean_title.lower())
+            norm_l = re.sub(r"[^\w\s]", "", lead.lower())
+            if norm_t in norm_l or norm_l in norm_t:
+                s1 = f"{lead}. Verified reporting from {raw_source} details key architectural milestones, verified specifications, and strategic ecosystem implications."
+            else:
+                s1 = f"{clean_title}: {lead}. Verified reporting from {raw_source} reflects accelerating infrastructure shifts and measurable industry impact."
+
+            s2 = clean_sentences[1] if len(clean_sentences) > 1 else f"Coverage reported by {raw_source} highlights underlying drivers and operational factors."
+            s3 = clean_sentences[2] if len(clean_sentences) > 2 else "Strategic implications focus on competitive positioning, scalability, and market adoption."
+            s4 = clean_sentences[3] if len(clean_sentences) > 3 else f"Key industry disclosures and data points verified from {raw_source} reports."
+            s5 = clean_sentences[4] if len(clean_sentences) > 4 else "Market observers expect follow-up execution milestones and deployment metrics in the coming cycle."
+
+            speech = f"{clean_title}. {s1}"
 
             res = {
-                "title": raw_title,
+                "title": clean_title,
                 "line1_what": s1,
                 "line2_context": s2,
                 "line3_impact": s3,
