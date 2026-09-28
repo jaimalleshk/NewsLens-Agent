@@ -1400,8 +1400,96 @@ body {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 0.85rem;
+  padding: 0.85rem 1rem;
   margin-bottom: 0.75rem;
+  transition: all 0.2s ease;
+  position: relative;
+  cursor: grab;
+}
+
+.topic-config-card:active {
+  cursor: grabbing;
+}
+
+.topic-config-card:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.topic-config-card.dragging {
+  opacity: 0.4;
+  border: 2px dashed var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.topic-config-card.drag-over {
+  border-top: 3px solid var(--accent-cyan);
+  transform: translateY(-2px);
+}
+
+.topic-card-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 1.15rem;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.drag-handle:hover {
+  color: var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.topic-order-index {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  min-width: 24px;
+  text-align: center;
+}
+
+.topic-order-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+}
+
+.btn-order-move {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.2;
+}
+
+.btn-order-move:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-cyan);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-order-move:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
 }
 
 /* Raw YAML Editor */

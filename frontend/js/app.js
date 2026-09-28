@@ -1216,32 +1216,123 @@ class NewsLensApp {
     if (statusPill) statusPill.classList.add("hidden");
   }
 
+  syncFormInputsToTopicsArray() {
+    const inputs = document.querySelectorAll("#topicsConfigList [data-field]");
+    inputs.forEach(input => {
+      const idx = parseInt(input.dataset.idx, 10);
+      const field = input.dataset.field;
+      if (this.config.topics && this.config.topics[idx]) {
+        if (field === "search_queries") {
+          this.config.topics[idx][field] = input.value.split(",").map(s => s.trim()).filter(Boolean);
+        } else {
+          this.config.topics[idx][field] = input.value;
+        }
+      }
+    });
+  }
+
   renderTopicsConfigList() {
     const container = document.getElementById("topicsConfigList");
     container.innerHTML = "";
 
+    let draggedIndex = null;
+
     this.config.topics.forEach((topic, idx) => {
       const card = document.createElement("div");
       card.className = "topic-config-card";
+      card.draggable = true;
+      card.dataset.idx = idx;
+
+      const isFirst = idx === 0;
+      const isLast = idx === this.config.topics.length - 1;
+
       card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-          <input type="text" class="form-input" style="width:50px; text-align:center;" value="${topic.icon || "📰"}" data-field="icon" data-idx="${idx}">
-          <input type="text" class="form-input" style="flex:1; margin:0 0.5rem; font-weight:700;" value="${topic.title}" data-field="title" data-idx="${idx}">
-          <button class="btn btn-secondary btn-sm btn-delete-topic" data-idx="${idx}" style="color:var(--accent-rose);">🗑️</button>
+        <div class="topic-card-header-row">
+          <span class="drag-handle" title="Click & drag to reorder topic">⠿</span>
+          <span class="topic-order-index">#${idx + 1}</span>
+          <input type="text" class="form-input" style="width:48px; text-align:center;" value="${topic.icon || "📰"}" data-field="icon" data-idx="${idx}" title="Emoji Icon">
+          <input type="text" class="form-input" style="flex:1; font-weight:700;" value="${topic.title}" data-field="title" data-idx="${idx}" placeholder="Topic Title">
+          <div class="topic-order-controls">
+            <button type="button" class="btn-order-move btn-move-up" data-idx="${idx}" title="Move Up" ${isFirst ? 'disabled' : ''}>▲</button>
+            <button type="button" class="btn-order-move btn-move-down" data-idx="${idx}" title="Move Down" ${isLast ? 'disabled' : ''}>▼</button>
+            <button type="button" class="btn btn-secondary btn-sm btn-delete-topic" data-idx="${idx}" style="color:var(--accent-rose); padding:2px 7px;" title="Delete Topic">🗑️</button>
+          </div>
         </div>
         <div class="form-row">
           <label>Strategic Focus Prompt:</label>
-          <textarea class="form-textarea" rows="2" data-field="strategy_prompt" data-idx="${idx}">${topic.strategy_prompt}</textarea>
+          <textarea class="form-textarea" rows="2" data-field="strategy_prompt" data-idx="${idx}" placeholder="Strategic analytical guidance for RAG & LLM summarizer...">${topic.strategy_prompt}</textarea>
         </div>
-        <div class="form-row">
+        <div class="form-row" style="margin-bottom:0;">
           <label>Search Queries (comma-separated):</label>
-          <input type="text" class="form-input" value="${(topic.search_queries || []).join(', ')}" data-field="search_queries" data-idx="${idx}">
+          <input type="text" class="form-input" value="${(topic.search_queries || []).join(', ')}" data-field="search_queries" data-idx="${idx}" placeholder="keyword 1, keyword 2">
         </div>
       `;
 
-      card.querySelector(".btn-delete-topic").addEventListener("click", () => {
+      // Up button click
+      card.querySelector(".btn-move-up")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.syncFormInputsToTopicsArray();
+        if (idx > 0) {
+          const temp = this.config.topics[idx];
+          this.config.topics[idx] = this.config.topics[idx - 1];
+          this.config.topics[idx - 1] = temp;
+          this.renderTopicsConfigList();
+        }
+      });
+
+      // Down button click
+      card.querySelector(".btn-move-down")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.syncFormInputsToTopicsArray();
+        if (idx < this.config.topics.length - 1) {
+          const temp = this.config.topics[idx];
+          this.config.topics[idx] = this.config.topics[idx + 1];
+          this.config.topics[idx + 1] = temp;
+          this.renderTopicsConfigList();
+        }
+      });
+
+      // Delete button click
+      card.querySelector(".btn-delete-topic").addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.syncFormInputsToTopicsArray();
         this.config.topics.splice(idx, 1);
         this.renderTopicsConfigList();
+      });
+
+      // HTML5 Drag & Drop listeners
+      card.addEventListener("dragstart", (e) => {
+        this.syncFormInputsToTopicsArray();
+        draggedIndex = idx;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", idx);
+        card.classList.add("dragging");
+      });
+
+      card.addEventListener("dragend", () => {
+        card.classList.remove("dragging");
+        document.querySelectorAll(".topic-config-card").forEach(el => el.classList.remove("drag-over"));
+      });
+
+      card.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        card.classList.add("drag-over");
+      });
+
+      card.addEventListener("dragleave", () => {
+        card.classList.remove("drag-over");
+      });
+
+      card.addEventListener("drop", (e) => {
+        e.preventDefault();
+        card.classList.remove("drag-over");
+        const targetIndex = idx;
+        if (draggedIndex !== null && draggedIndex !== targetIndex) {
+          const [movedItem] = this.config.topics.splice(draggedIndex, 1);
+          this.config.topics.splice(targetIndex, 0, movedItem);
+          this.renderTopicsConfigList();
+        }
       });
 
       container.appendChild(card);
@@ -1249,6 +1340,7 @@ class NewsLensApp {
   }
 
   addTopicCardInModal() {
+    this.syncFormInputsToTopicsArray();
     const newTopic = {
       id: `topic_${Date.now()}`,
       title: "New Strategic Topic",
@@ -1318,18 +1410,7 @@ class NewsLensApp {
     this.config.llm.api_key = document.getElementById("configLlmApiKey").value.trim();
     this.config.llm.local_api_base = document.getElementById("configLlmLocalUrl").value.trim();
 
-    const inputs = document.querySelectorAll("#topicsConfigList [data-field]");
-    inputs.forEach(input => {
-      const idx = parseInt(input.dataset.idx, 10);
-      const field = input.dataset.field;
-      if (this.config.topics[idx]) {
-        if (field === "search_queries") {
-          this.config.topics[idx][field] = input.value.split(",").map(s => s.trim()).filter(Boolean);
-        } else {
-          this.config.topics[idx][field] = input.value;
-        }
-      }
-    });
+    this.syncFormInputsToTopicsArray();
 
     try {
       const resp = await fetch("/api/config/update", {
