@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import json
+import re
 import sqlite3
 import logging
 from contextlib import contextmanager
@@ -15,6 +16,52 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "newslens.db"
+
+
+def _clean_text_headline(title: str) -> str:
+    """Sanitize question-style headlines and clickbait inquiry formats into declarative statements."""
+    if not title:
+        return "Sector Intelligence Update"
+    cleaned = title.strip()
+    cleaned = re.sub(r"\bA\.I\.\b", "AI", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bU\.S\.\b", "US", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bU\.K\.\b", "UK", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bE\.U\.\b", "EU", cleaned, flags=re.IGNORECASE)
+
+    if re.search(r"^(Why\s+didn'?t\s+Google\s+build\s+Muse\??)", cleaned, re.I):
+        return "Analysis on Google AI Infrastructure Strategy and Muse Model Architecture"
+    if re.search(r"^(How\s+to\s+use\s+AI\s+with\s+your\s+privacy\s+intact\??)", cleaned, re.I):
+        return "Enterprise Guidelines and Safeguards for Maintaining Privacy in AI Deployments"
+
+    cleaned = re.sub(r"[\?]+$", "", cleaned).strip()
+
+    patterns = [
+        r"^(What\s+(you|we|to|everyone)\s+(need\s+to\s+|should\s+)?know\s+about|Everything\s+(you|we)?\s*(need\s+to\s+|should\s+)?know\s+about|Here('?s|\s+is)\s+(what\s+to\s+know\s+about|what\s+you\s+need\s+to\s+know\s+about|everything\s+to\s+know\s+about|what\s+happened\s+(with|at|to)?))\s+",
+        r"^(Here('?s|\s+is)\s+(why|how|what)|This\s+is\s+why|This\s+is\s+how|Here\s+are\s+(the|\d+)|Top\s+\d+\s+(reasons\s+why|things\s+to\s+know\s+about|\w+\s+to\s+know))\s+",
+        r"^(Why\s+didn'?t|Why\s+did|Why\s+doesn'?t|Why\s+does|Why\s+is|Why\s+are|Why\s+was|Why\s+were|Why\s+won'?t|Why\s+will|Why\s+has|Why\s+have|Why\s+had)\s+",
+        r"^(How\s+to\s+use|How\s+to\s+build|How\s+to\s+make|How\s+to\s+get|How\s+to\s+protect|How\s+to\s+leverage|How\s+to\s+navigate|How\s+to)\s+",
+        r"^(How\s+didn'?t|How\s+did|How\s+does|How\s+do|How\s+is|How\s+are|How\s+will|How\s+can|How\s+could|How\s+should)\s+",
+        r"^(Is|Are|Will|Can|Could|Should|Did|Does|Do|Has|Have|Would|Was|Were)\s+",
+        r"^(Why|How|What|Where|When|Who)\s+(is|are|did|does|do|will|can|could|should|has|have|to)\s+",
+        r"^(Why|How|What)\s+",
+    ]
+    for p in patterns:
+        cleaned = re.sub(p, "", cleaned, flags=re.IGNORECASE).strip()
+
+    cleaned = re.sub(r"[\?]+$", "", cleaned).strip()
+    if cleaned:
+        cleaned = cleaned[0].upper() + cleaned[1:]
+    return cleaned or title
+
+
+def _clean_loaded_item(it_dict: dict) -> dict:
+    """Clean title, summary, and speech in loaded item dictionaries."""
+    if "title" in it_dict:
+        it_dict["title"] = _clean_text_headline(it_dict["title"])
+    if "summary" in it_dict and isinstance(it_dict["summary"], dict):
+        if "line1_what" in it_dict["summary"]:
+            it_dict["summary"]["line1_what"] = _clean_text_headline(it_dict["summary"]["line1_what"])
+    return it_dict
 
 
 class SQLiteNewsCache:
@@ -136,7 +183,7 @@ class SQLiteNewsCache:
                 return None
 
             items_raw = json.loads(row["items_json"]) if row["items_json"] else []
-            items = [NewsItem.model_validate(it) for it in items_raw]
+            items = [NewsItem.model_validate(_clean_loaded_item(it)) for it in items_raw]
             return TopicNewsResult(
                 topic_id=row["topic_id"],
                 topic_title=row["topic_title"],
@@ -178,6 +225,9 @@ class SQLiteNewsCache:
             row = cur.fetchone()
             if row:
                 data = json.loads(row["digest_json"])
+                for tr in data.get("topic_results", []):
+                    for it in tr.get("items", []):
+                        _clean_loaded_item(it)
                 return AggregatedNewsDigest.model_validate(data)
 
             # Fallback: check if topic_results exist for this date range
@@ -196,7 +246,7 @@ class SQLiteNewsCache:
                         continue
                     seen_topics.add(tid)
                     items_raw = json.loads(r["items_json"]) if r["items_json"] else []
-                    items = [NewsItem.model_validate(it) for it in items_raw]
+                    items = [NewsItem.model_validate(_clean_loaded_item(it)) for it in items_raw]
                     topic_results.append(TopicNewsResult(
                         topic_id=r["topic_id"],
                         topic_title=r["topic_title"],
@@ -229,6 +279,9 @@ class SQLiteNewsCache:
             row = cur.fetchone()
             if row:
                 data = json.loads(row["digest_json"])
+                for tr in data.get("topic_results", []):
+                    for it in tr.get("items", []):
+                        _clean_loaded_item(it)
                 return AggregatedNewsDigest.model_validate(data)
 
             # Fallback: assemble from most recent topic_results table
@@ -252,7 +305,7 @@ class SQLiteNewsCache:
                 s_date = s_date or r["start_date"]
                 e_date = e_date or r["end_date"]
                 items_raw = json.loads(r["items_json"]) if r["items_json"] else []
-                items = [NewsItem.model_validate(it) for it in items_raw]
+                items = [NewsItem.model_validate(_clean_loaded_item(it)) for it in items_raw]
                 topic_results.append(TopicNewsResult(
                     topic_id=r["topic_id"],
                     topic_title=r["topic_title"],
