@@ -52,21 +52,26 @@ OUTPUT: Return only the spoken script text.
 """
 
 CROSS_TOPIC_EXECUTIVE_DIGEST_PROMPT = """You are the Chief Intelligence Officer.
-Create an overarching executive digest synthesizing today's news across all topics ({topics_list}) for dates {start_date} to {end_date}.
+Deliver a comprehensive, balanced Executive Intelligence Digest synthesizing news across ALL active topic verticals ({topics_list}) for dates {start_date} to {end_date}.
 
-TOPIC SUMMARIES:
+TOPIC BREAKDOWNS & STORIES:
 {all_topic_summaries}
 
 YOUR TASK:
-1. Executive Written Synthesis (3 concise paragraphs highlighting macro themes, cross-sector intersections, and strategic watchpoints).
-2. Spoken Executive Audio Briefing Script (a natural 90-second conversational briefing for the executive to listen to on the go).
+1. Executive Written Synthesis in clean Markdown:
+   - Provide a 2-sentence macro synthesis connecting the overarching cross-sector themes.
+   - You MUST include a dedicated subsection with bold key points for EACH active topic in {topics_list}.
+   - Do NOT focus solely on Artificial Intelligence; ensure equal executive attention to Finance & Business, Enterprise IT, Politics & Immigration, Local Houston/Tomball news, Real Estate, and Health.
+2. Spoken Executive Audio Briefing Script:
+   - Write a complete conversational audio broadcast script that naturally flows through all topics in sequence.
 
-Return in JSON format:
+Return strictly in JSON format:
 {{
-  "executive_overview": "3-paragraph written strategic synthesis in Markdown",
-  "executive_audio_script": "Natural spoken audio broadcast script"
+  "executive_overview": "Comprehensive multi-topic strategic synthesis in Markdown with dedicated sections for each topic",
+  "executive_audio_script": "Natural spoken audio broadcast script covering all topics"
 }}
 """
+
 
 AGENT_INTENT_PARSER_PROMPT = """You are the AI Orchestrator for the News & Analysis Agent.
 The user provided the following natural language or voice command:

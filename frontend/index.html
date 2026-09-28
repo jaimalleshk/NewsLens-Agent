@@ -116,86 +116,105 @@
       </div>
     </div>
 
-    <!-- Dynamic Tab Bar -->
-    <nav class="tabs-container">
-      <div id="dynamicTabBar" class="tab-list">
-        <!-- Dynamic topic tabs populated via JS -->
-      </div>
-      <button id="btnAddTopicQuick" class="btn-add-tab" title="Add Dynamic Topic">+ Add Topic</button>
-    </nav>
-
-    <!-- Real-time Streaming Progress Banner (Non-blocking) -->
-    <div id="streamingProgressBanner" class="streaming-progress-banner hidden">
-      <div class="streaming-pulse-dot">●</div>
-      <span id="streamingProgressText">Connecting to real-time intelligence stream...</span>
-    </div>
-
-    <!-- Main Content Stage -->
-    <main class="main-content">
-      <!-- Loading Indicator -->
-      <div id="loadingOverlay" class="loading-state hidden">
-        <div class="spinner"></div>
-        <h3 id="loadingStatusText">Agent analyzing latest news streams...</h3>
-        <p class="loading-subtext">Executing RAG vector indexing, story deduplication, and precision summarization</p>
-      </div>
-
-      <!-- Executive Overview Tab Pane -->
-      <section id="paneOverview" class="tab-pane active">
-        <div class="overview-header-card">
-          <div class="overview-title-row">
-            <div>
-              <h2>🌐 Executive Intelligence Overview</h2>
-              <p id="digestDateBadge" class="meta-date">Date Window: Loading...</p>
-            </div>
-            <button id="btnPlayAllAudio" class="btn btn-listen" title="Agent will speak the complete news section-by-section without needing to read">
-              🎙️ Play Complete Spoken Broadcast (All Sections)
-            </button>
-          </div>
-          <div id="overviewSummaryContent" class="markdown-body">
-            <p class="placeholder-text">Click <strong>Run Ingestion</strong> above or use <strong>Voice Mode</strong> to generate your tailored intelligence digest.</p>
-          </div>
+    <!-- Main Dashboard Body with Left Vertical Sidebar & Right Stage -->
+    <div class="dashboard-body">
+      <!-- Left Vertical Sidebar for Topic Navigation -->
+      <aside class="topics-sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">📑 INTELLIGENCE TOPICS</span>
+          <span class="sidebar-count" id="sidebarTopicCount">7 Active</span>
         </div>
 
-        <div class="section-divider">
-          <span id="overviewStoriesDividerLabel">TOP STORIES ACROSS ALL TOPICS (1-LINE VIEW)</span>
-        </div>
-
-        <div id="allTopicsDigestGrid" class="news-cards-grid compact-layout">
-          <!-- Populated dynamically -->
-        </div>
-      </section>
-
-      <!-- Dynamic Topic News Tab Pane (reused for active topic) -->
-      <section id="paneTopic" class="tab-pane hidden">
-        <div class="topic-header-bar">
-          <div class="topic-meta">
-            <h2 id="currentTopicTitle">🤖 AI & Machine Learning</h2>
-            <div class="strategy-badge">
-              <span class="strategy-icon">🎯 Strategic Focus:</span>
-              <span id="currentTopicStrategy">Loading strategy...</span>
-            </div>
-            <!-- Monitored Keywords Chips list in YAML -->
-            <div class="topic-keywords-container">
-              <span class="keywords-label">🔑 Monitored Keywords (Saved in YAML):</span>
-              <div id="currentTopicKeywordsList" class="keywords-chips-list">
-                <!-- Dynamically populated chips -->
-              </div>
-              <div class="inline-add-keyword-wrapper">
-                <input type="text" id="inlineKeywordInput" class="input-keyword-inline" placeholder="+ Add keyword to YAML...">
-                <button id="btnInlineAddKeyword" class="btn-keyword-add" title="Save keyword to YAML">+</button>
-              </div>
-            </div>
+        <nav class="sidebar-nav">
+          <div id="dynamicTabBar" class="topic-tab-vertical-list">
+            <!-- Dynamic topic tabs populated via JS -->
           </div>
-          <button id="btnPlayTopicAudio" class="btn btn-listen" title="Agent will speak this entire section thoroughly">
-            🔊 Play This Section Broadcast
+        </nav>
+
+        <div class="sidebar-footer">
+          <button id="btnAddTopicQuick" class="btn-add-tab-vertical" title="Add Dynamic Topic">
+            <span>+</span> Add Custom Topic
           </button>
         </div>
+      </aside>
 
-        <div id="topicNewsCardsGrid" class="news-cards-grid compact-layout">
-          <!-- News cards inserted here -->
+      <!-- Right Main Content Stage -->
+      <div class="dashboard-main-stage">
+        <!-- Real-time Streaming Progress Banner (Non-blocking) -->
+        <div id="streamingProgressBanner" class="streaming-progress-banner hidden">
+          <div class="streaming-pulse-dot">●</div>
+          <span id="streamingProgressText">Connecting to real-time intelligence stream...</span>
         </div>
-      </section>
-    </main>
+
+        <!-- Main Content Stage -->
+        <main class="main-content">
+          <!-- Loading Indicator -->
+          <div id="loadingOverlay" class="loading-state hidden">
+            <div class="spinner"></div>
+            <h3 id="loadingStatusText">Agent analyzing latest news streams...</h3>
+            <p class="loading-subtext">Executing RAG vector indexing, story deduplication, and precision summarization</p>
+          </div>
+
+          <!-- Executive Overview Tab Pane -->
+          <section id="paneOverview" class="tab-pane active">
+            <div class="overview-header-card">
+              <div class="overview-title-row">
+                <div>
+                  <h2>🌐 Executive Intelligence Overview</h2>
+                  <p id="digestDateBadge" class="meta-date">Date Window: Loading...</p>
+                </div>
+                <button id="btnPlayAllAudio" class="btn btn-listen" title="Agent will speak the complete news section-by-section without needing to read">
+                  🎙️ Play Complete Spoken Broadcast (All Sections)
+                </button>
+              </div>
+              <div id="overviewSummaryContent" class="markdown-body">
+                <p class="placeholder-text">Click <strong>Run Ingestion</strong> above or use <strong>Voice Mode</strong> to generate your tailored intelligence digest.</p>
+              </div>
+            </div>
+
+            <div class="section-divider">
+              <span id="overviewStoriesDividerLabel">TOP STORIES ACROSS ALL TOPICS (COMPACT VIEW)</span>
+            </div>
+
+            <div id="allTopicsDigestGrid" class="news-cards-grid compact-layout">
+              <!-- Populated dynamically -->
+            </div>
+          </section>
+
+          <!-- Dynamic Topic News Tab Pane (reused for active topic) -->
+          <section id="paneTopic" class="tab-pane hidden">
+            <div class="topic-header-bar">
+              <div class="topic-meta">
+                <h2 id="currentTopicTitle">🤖 AI & Machine Learning</h2>
+                <div class="strategy-badge">
+                  <span class="strategy-icon">🎯 Strategic Focus:</span>
+                  <span id="currentTopicStrategy">Loading strategy...</span>
+                </div>
+                <!-- Monitored Keywords Chips list in YAML -->
+                <div class="topic-keywords-container">
+                  <span class="keywords-label">🔑 Monitored Keywords (Saved in YAML):</span>
+                  <div id="currentTopicKeywordsList" class="keywords-chips-list">
+                    <!-- Dynamically populated chips -->
+                  </div>
+                  <div class="inline-add-keyword-wrapper">
+                    <input type="text" id="inlineKeywordInput" class="input-keyword-inline" placeholder="+ Add keyword to YAML...">
+                    <button id="btnInlineAddKeyword" class="btn-keyword-add" title="Save keyword to YAML">+</button>
+                  </div>
+                </div>
+              </div>
+              <button id="btnPlayTopicAudio" class="btn btn-listen" title="Agent will speak this entire section thoroughly">
+                🔊 Play This Section Broadcast
+              </button>
+            </div>
+
+            <div id="topicNewsCardsGrid" class="news-cards-grid compact-layout">
+              <!-- News cards inserted here -->
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
 
     <!-- Slide-Out Agent Dialogue & Voice Drawer -->
     <aside id="agentChatDrawer" class="chat-drawer closed">

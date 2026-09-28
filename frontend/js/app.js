@@ -399,6 +399,7 @@ class NewsLensApp {
 
   renderDynamicTabs() {
     const tabList = document.getElementById("dynamicTabBar");
+    if (!tabList) return;
     tabList.innerHTML = "";
 
     const quickSelect = document.getElementById("quickTopicSelect");
@@ -406,10 +407,21 @@ class NewsLensApp {
       quickSelect.innerHTML = `<option value="">🎯 Auto-detect / Current Topic</option>`;
     }
 
-    // 1. Overview Tab
+    const totalActive = (this.config?.topics || []).filter(t => t.enabled).length;
+    const countEl = document.getElementById("sidebarTopicCount");
+    if (countEl) countEl.textContent = `${totalActive} Active`;
+
+    // 1. Executive Overview Tab
     const overviewTab = document.createElement("button");
     overviewTab.className = `tab-item ${this.activeTopicId === "overview" ? "active" : ""}`;
-    overviewTab.innerHTML = `<span>🌐</span> Executive Overview`;
+    const allCount = this.currentDigest ? this.currentDigest.topic_results.reduce((acc, t) => acc + (t.items ? t.items.length : 0), 0) : 0;
+    overviewTab.innerHTML = `
+      <div class="tab-title-group">
+        <span>🌐</span>
+        <span>Executive Overview</span>
+      </div>
+      ${allCount > 0 ? `<span class="tab-badge-count">${allCount}</span>` : ""}
+    `;
     overviewTab.addEventListener("click", () => this.switchTab("overview"));
     tabList.appendChild(overviewTab);
 
@@ -421,7 +433,13 @@ class NewsLensApp {
         const count = this.getTopicArticleCount(topic.id);
         const tab = document.createElement("button");
         tab.className = `tab-item ${this.activeTopicId === topic.id ? "active" : ""}`;
-        tab.innerHTML = `<span>${topic.icon || "📰"}</span> ${topic.title} ${count > 0 ? `<span class="tab-badge-count">${count}</span>` : ""}`;
+        tab.innerHTML = `
+          <div class="tab-title-group">
+            <span>${topic.icon || "📰"}</span>
+            <span>${topic.title}</span>
+          </div>
+          ${count > 0 ? `<span class="tab-badge-count">${count}</span>` : ""}
+        `;
         tab.addEventListener("click", () => this.switchTab(topic.id));
         tabList.appendChild(tab);
 
@@ -434,6 +452,7 @@ class NewsLensApp {
       });
     }
   }
+
 
   getTopicArticleCount(topicId) {
     if (!this.currentDigest) return 0;

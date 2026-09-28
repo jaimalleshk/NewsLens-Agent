@@ -260,89 +260,170 @@ body {
   background: rgba(16, 185, 129, 0.25);
 }
 
-/* Dynamic Tab Bar */
-.tabs-container {
+/* Main Dashboard Body (Vertical Left Sidebar + Right Main Stage) */
+.dashboard-body {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 120px);
+}
+
+/* Left Vertical Sidebar */
+.topics-sidebar {
+  width: 280px;
+  min-width: 260px;
+  max-width: 300px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 60px;
+  height: calc(100vh - 60px);
+  z-index: 30;
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.4rem 1.75rem;
-  background: var(--bg-surface);
+  padding: 1rem 1.25rem 0.75rem;
   border-bottom: 1px solid var(--border-color);
-  overflow-x: auto;
 }
 
-.tab-list {
+.sidebar-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.sidebar-count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-cyan);
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 0.65rem;
+}
+
+.topic-tab-vertical-list {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0.35rem;
-  overflow-x: auto;
-  padding-bottom: 2px;
 }
 
 .tab-item {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.45rem 0.9rem;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
   border-radius: var(--radius-md);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: var(--text-secondary);
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+
+.tab-item .tab-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .tab-item:hover {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.04);
+  transform: translateX(2px);
 }
 
 .tab-item.active {
-  color: var(--accent-cyan);
-  background: rgba(56, 189, 248, 0.1);
-  border-color: rgba(56, 189, 248, 0.3);
+  color: #fff;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.15), rgba(56, 189, 248, 0.05));
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: inset 3px 0 0 var(--accent-cyan);
 }
 
 .tab-badge-count {
   font-size: 0.7rem;
+  font-weight: 700;
   background: var(--bg-surface-elevated);
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: var(--radius-full);
   color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .tab-item.active .tab-badge-count {
   background: rgba(56, 189, 248, 0.2);
   color: var(--accent-cyan);
+  border-color: rgba(56, 189, 248, 0.4);
 }
 
-.btn-add-tab {
+.sidebar-footer {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border-color);
+  background: rgba(18, 24, 36, 0.95);
+}
+
+.btn-add-tab-vertical {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   background: transparent;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  padding: 0.35rem 0.7rem;
+  border: 1px dashed rgba(56, 189, 248, 0.35);
+  color: var(--accent-cyan);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.55rem;
   border-radius: var(--radius-md);
   cursor: pointer;
-  white-space: nowrap;
+  transition: all 0.2s;
 }
 
-.btn-add-tab:hover {
-  color: var(--text-primary);
+.btn-add-tab-vertical:hover {
+  background: rgba(56, 189, 248, 0.1);
   border-color: var(--accent-cyan);
+}
+
+/* Right Main Content Stage */
+.dashboard-main-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Prevents flex children from overflowing */
+  background: var(--bg-primary);
 }
 
 /* Main Content */
 .main-content {
   flex: 1;
-  padding: 1.5rem 1.75rem;
-  max-width: 1400px;
+  padding: 1.5rem 2rem;
+  max-width: 1300px;
   margin: 0 auto;
   width: 100%;
 }
+
 
 .tab-pane {
   display: block;
