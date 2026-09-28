@@ -1,0 +1,173 @@
+# News & Analysis Agent Configuration - Default Feeds & Preferences
+
+llm:
+  # Provider: "local" (Ollama / Local OpenAI endpoint) or "deepseek" (Online DeepSeek API)
+  provider: "local"
+  # Model: e.g. "deepseek-r1:8b", "llama3.3", or "deepseek-chat"
+  model: "deepseek-r1:8b"
+  api_key: ""
+  api_base: "https://api.deepseek.com/v1"
+  local_api_base: "http://localhost:11434/v1"
+  temperature: 0.3
+  max_tokens: 2000
+
+search:
+  max_results_per_topic: 20
+  backend: "hybrid"
+  timeout_seconds: 15
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
+voice:
+  tts_voice: "en-US-AndrewMultilingualNeural"
+  tts_rate: "+0%"
+  tts_pitch: "+0Hz"
+  broadcast_style: true
+  enable_local_playback: true
+
+ui:
+  # Default view mode: "compact" (1 precise all-covering concise line) or "full" (1-line + 5-lines analysis)
+  view_mode: "compact"
+
+# Default Multi-Topic Intelligence Feeds
+topics:
+  - id: "artificial_intelligence"
+    title: "Artificial Intelligence"
+    icon: "🤖"
+    enabled: true
+    max_articles: 40
+    strategy_prompt: >
+      Comprehensive AI intelligence: Focus on OpenAI, Google Gemini, Anthropic, Meta, and emerging AI leaders.
+      Track breakthrough models, architecture innovations, market valuations, business adoption, tech jobs, Elon Musk's AI initiatives (xAI, Grok),
+      government AI regulations, security breaches/hacks, and Apple/Microsoft enterprise AI integrations.
+      Prioritize verified reporting from Forbes, CNBC, Bloomberg, Reuters, and top tech publications.
+    search_queries:
+      - "OpenAI Google Gemini Anthropic Meta AI model release"
+      - "Elon Musk xAI Grok artificial intelligence"
+      - "Microsoft Copilot Apple Intelligence enterprise AI"
+      - "AI cybersecurity breach regulation government policy"
+
+  - id: "finance_business_usa"
+    title: "Finance & Business (USA)"
+    icon: "💵"
+    enabled: true
+    max_articles: 20
+    strategy_prompt: >
+      Focus on breaking US financial and economic news, Federal Reserve interest rate trends, inflation metrics, 
+      corporate earnings, Wall Street market movements, and specific real estate/housing market trends in Houston, Texas.
+      Source insights from CNBC, Bloomberg, Forbes, and Wall Street Journal.
+    search_queries:
+      - "US financial markets Federal Reserve interest rates inflation"
+      - "Houston Texas housing market real estate interest rates"
+      - "US economy corporate earnings breaking business news"
+
+  - id: "usa_it"
+    title: "USA IT & Enterprise Tech"
+    icon: "💻"
+    enabled: true
+    max_articles: 30
+    strategy_prompt: >
+      Focus on enterprise IT infrastructure, Microsoft ecosystem announcements, Microsoft Power Platform latest releases,
+      Microsoft 365 (M365) key admin and product updates, Microsoft AI Frontier developments, cloud architecture, and hyperscale software.
+    search_queries:
+      - "Microsoft Power Platform release wave updates"
+      - "Microsoft 365 M365 key updates enterprise IT"
+      - "Microsoft AI Frontier cloud infrastructure IT news"
+
+  - id: "usa_political"
+    title: "USA Politics & Immigration"
+    icon: "🏛️"
+    enabled: true
+    max_articles: 15
+    strategy_prompt: >
+      Track top trending US political developments, Texas state policy decisions, federal legislation, USCIS immigration news,
+      Green Card backlog updates, visa bulletin movements (EB categories), and legal immigration reforms.
+    search_queries:
+      - "US politics federal legislation Congress White House"
+      - "US immigration Green card visa bulletin USCIS update"
+      - "Texas state government politics policy news"
+
+  - id: "local_houston_tomball"
+    title: "Local: Houston & Tomball, TX"
+    icon: "📍"
+    enabled: true
+    max_articles: 10
+    strategy_prompt: >
+      Curate top local breaking news, community events, civic developments, transportation, infrastructure projects,
+      and major municipal updates across Greater Houston and Tomball, Texas.
+    search_queries:
+      - "Houston Texas breaking news community developments"
+      - "Tomball TX local news events city council"
+
+  - id: "narendra_modi_news"
+    title: "Narendra Modi (PM Updates)"
+    icon: "🇮🇳"
+    enabled: true
+    max_articles: 20
+    strategy_prompt: >
+      Track Prime Minister Narendra Modi's official speeches, national infrastructure launches, bilateral diplomacy,
+      cabinet decisions, Mann Ki Baat discourses, and official releases from PMO India and narendramodi.in.
+    search_queries:
+      - "Narendra Modi Prime Minister official speech announcement"
+      - "PM Narendra Modi government schemes diplomacy India"
+
+  - id: "sri_sri_ravi_shankar"
+    title: "Sri Sri Ravi Shankar"
+    icon: "🕊️"
+    enabled: true
+    max_articles: 15
+    strategy_prompt: >
+      Focus on Gurudev Sri Sri Ravi Shankar's global peace initiatives, Art of Living humanitarian projects,
+      meditation programs, youth empowerment, interfaith dialogues, and keynote addresses around the world.
+    search_queries:
+      - "Sri Sri Ravi Shankar Art of Living peace initiative"
+      - "Sri Sri Ravi Shankar discourse meditation event"
+
+  - id: "republic_tv_news"
+    title: "Republic TV Top News"
+    icon: "📺"
+    enabled: true
+    max_articles: 10
+    strategy_prompt: >
+      Curate top breaking news, prime-time investigative reports, national political debates, and trending headlines from Republic TV and Republic World.
+    search_queries:
+      - "Republic TV breaking news India headlines"
+      - "Republic World national news top stories"
+
+  - id: "finance_business_india"
+    title: "Finance & Business (India)"
+    icon: "📈"
+    enabled: true
+    max_articles: 20
+    strategy_prompt: >
+      Track Indian macroeconomic trends, RBI monetary policy and repo rates, Sensex and Nifty market performance,
+      housing finance and real estate market trends across Indian metros, startup funding, and corporate earnings.
+      Source from Economic Times, Mint, and Business Standard.
+    search_queries:
+      - "India business economy RBI interest rate inflation"
+      - "Indian stock market Sensex Nifty corporate earnings"
+      - "India housing market real estate property interest rates"
+
+  - id: "india_it_news"
+    title: "India IT & Tech Industry"
+    icon: "⚙️"
+    enabled: true
+    max_articles: 20
+    strategy_prompt: >
+      Focus on the Indian IT services sector (TCS, Infosys, Wipro, HCL), Global Capability Centers (GCCs), tech employment and hiring trends,
+      enterprise cloud migrations, Microsoft India partnerships, and domestic AI technology developments.
+    search_queries:
+      - "India IT industry TCS Infosys Wipro tech hiring"
+      - "India GCC global capability centers enterprise tech"
+      - "India AI technology software development news"
+
+  - id: "india_political_news"
+    title: "India Politics & Governance"
+    icon: "🗳️"
+    enabled: true
+    max_articles: 10
+    strategy_prompt: >
+      Cover national governance reforms, Parliament legislative sessions, key state political developments,
+      electoral trends, policy announcements, and landmark Supreme Court decisions in India.
+    search_queries:
+      - "India politics Parliament policy national news"
+      - "India government reforms state political developments"

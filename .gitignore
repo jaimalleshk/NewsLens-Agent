@@ -1,0 +1,32 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.class
+
+# Caches and virtual environments
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+.venv
+env/
+venv/
+ENV/
+
+# User-specific runtime configurations (contains private API keys)
+config.user.yaml
+config.user.json
+*.key
+
+# Generated audio and temporary outputs
+*.mp3
+*.wav
+audio_output/
+logs/
+*.log
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

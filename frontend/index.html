@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NewsLens — Autonomous News & Intelligence Analyst</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-text">
+          <h1>NewsLens <span class="badge-ai">Agent RAG</span></h1>
+          <p class="tagline">Autonomous Multi-Topic Intelligence & Analysis</p>
+        </div>
+      </div>
+
+      <div class="nav-controls">
+        <!-- Date Range Filter -->
+        <div class="control-group date-picker-group">
+          <label for="startDate">From:</label>
+          <input type="date" id="startDate" class="input-date">
+          <label for="endDate">To:</label>
+          <input type="date" id="endDate" class="input-date">
+          <div class="quick-presets">
+            <button class="btn-preset active" data-days="7">7D</button>
+            <button class="btn-preset" data-days="3">3D</button>
+            <button class="btn-preset" data-days="1">Today</button>
+          </div>
+        </div>
+
+        <!-- 1-Line vs 5-Lines View Density Toggle (Default: 1-Line) -->
+        <div class="view-density-toggle" title="Switch between 1-Line Headline News and Full 5-Line Executive Analysis">
+          <button id="btnView1Line" class="btn-density active" data-mode="compact">
+            ⚡ 1-Line News
+          </button>
+          <button id="btnView5Lines" class="btn-density" data-mode="full">
+            📑 5-Lines Analysis
+          </button>
+        </div>
+
+        <button id="btnFetchNews" class="btn btn-primary">
+          <span class="btn-icon">⚡</span> Run Ingestion
+        </button>
+
+        <!-- Voice Command Button -->
+        <button id="btnVoiceCommand" class="btn btn-voice" title="Speak to Agent (Voice Search / Config)">
+          <span class="mic-icon">🎙️</span> <span id="voiceBtnLabel">Voice Mode</span>
+        </button>
+
+        <!-- Chat Drawer Toggle -->
+        <button id="btnToggleChat" class="btn btn-secondary">
+          <span>💬</span> Agent Chat
+        </button>
+
+        <!-- LLM Status Pill (Click to open LLM configuration) -->
+        <button id="headerLlmBadge" class="btn-llm-pill" title="Active AI Model. Click to switch or configure.">
+          <span class="llm-pill-dot">●</span>
+          <span id="headerLlmName">DeepSeek: deepseek-chat</span>
+        </button>
+
+        <!-- Config Modal Toggle -->
+        <button id="btnOpenConfig" class="btn btn-secondary" title="Agent Configuration & YAML Editor">
+          <span>⚙️</span> Config & YAML
+        </button>
+      </div>
+    </header>
+
+    <!-- Global Audio Broadcast Banner -->
+    <div id="audioBriefingBanner" class="broadcast-banner hidden">
+      <div class="broadcast-info">
+        <div class="sound-wave">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="broadcast-meta">
+          <div class="broadcast-meta-top">
+            <span class="broadcast-label">🎙️ EXECUTIVE SPOKEN BROADCAST</span>
+            <span id="audioSectionTracker" class="audio-section-tracker hidden">Section 1 / 11</span>
+          </div>
+          <span id="audioBriefingTitle" class="broadcast-title">Cross-Topic Intelligence Digest</span>
+        </div>
+      </div>
+      <div class="broadcast-controls">
+        <button id="btnPrevSectionAudio" class="btn-audio-control" title="Previous Section">⏮️</button>
+        <audio id="globalAudioPlayer" controls></audio>
+        <button id="btnNextSectionAudio" class="btn-audio-control" title="Next Section">⏭️</button>
+        <select id="audioPlaybackSpeed" class="select-audio-speed" title="Playback Speed">
+          <option value="1.0">1.0x</option>
+          <option value="1.15">1.15x</option>
+          <option value="1.25" selected>1.25x</option>
+          <option value="1.5">1.5x</option>
+        </select>
+        <button id="btnCloseAudio" class="btn-close-banner" title="Close Audio Player">✕</button>
+      </div>
+    </div>
+
+    <!-- Quick Keyword Feed & Persistence Bar -->
+    <div class="keyword-feed-bar">
+      <div class="keyword-feed-inner">
+        <span class="feed-icon">🔑</span>
+        <input type="text" id="quickKeywordInput" class="input-keyword" placeholder="Feed search keyword / query to track (e.g. 'NVIDIA Blackwell', 'Houston real estate', 'Quantum AI')...">
+        <select id="quickTopicSelect" class="select-keyword-topic">
+          <option value="">🎯 Auto-detect / Current Topic</option>
+          <!-- Dynamically populated topics -->
+        </select>
+        <button id="btnQuickFeedKeyword" class="btn btn-primary btn-sm">
+          <span>⚡</span> Feed & Save to YAML
+        </button>
+        <span id="keywordSaveStatus" class="save-status-badge hidden">✓ Saved to YAML</span>
+      </div>
+    </div>
+
+    <!-- Dynamic Tab Bar -->
+    <nav class="tabs-container">
+      <div id="dynamicTabBar" class="tab-list">
+        <!-- Dynamic topic tabs populated via JS -->
+      </div>
+      <button id="btnAddTopicQuick" class="btn-add-tab" title="Add Dynamic Topic">+ Add Topic</button>
+    </nav>
+
+    <!-- Real-time Streaming Progress Banner (Non-blocking) -->
+    <div id="streamingProgressBanner" class="streaming-progress-banner hidden">
+      <div class="streaming-pulse-dot">●</div>
+      <span id="streamingProgressText">Connecting to real-time intelligence stream...</span>
+    </div>
+
+    <!-- Main Content Stage -->
+    <main class="main-content">
+      <!-- Loading Indicator -->
+      <div id="loadingOverlay" class="loading-state hidden">
+        <div class="spinner"></div>
+        <h3 id="loadingStatusText">Agent analyzing latest news streams...</h3>
+        <p class="loading-subtext">Executing RAG vector indexing, story deduplication, and precision summarization</p>
+      </div>
+
+      <!-- Executive Overview Tab Pane -->
+      <section id="paneOverview" class="tab-pane active">
+        <div class="overview-header-card">
+          <div class="overview-title-row">
+            <div>
+              <h2>🌐 Executive Intelligence Overview</h2>
+              <p id="digestDateBadge" class="meta-date">Date Window: Loading...</p>
+            </div>
+            <button id="btnPlayAllAudio" class="btn btn-listen" title="Agent will speak the complete news section-by-section without needing to read">
+              🎙️ Play Complete Spoken Broadcast (All Sections)
+            </button>
+          </div>
+          <div id="overviewSummaryContent" class="markdown-body">
+            <p class="placeholder-text">Click <strong>Run Ingestion</strong> above or use <strong>Voice Mode</strong> to generate your tailored intelligence digest.</p>
+          </div>
+        </div>
+
+        <div class="section-divider">
+          <span id="overviewStoriesDividerLabel">TOP STORIES ACROSS ALL TOPICS (1-LINE VIEW)</span>
+        </div>
+
+        <div id="allTopicsDigestGrid" class="news-cards-grid compact-layout">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- Dynamic Topic News Tab Pane (reused for active topic) -->
+      <section id="paneTopic" class="tab-pane hidden">
+        <div class="topic-header-bar">
+          <div class="topic-meta">
+            <h2 id="currentTopicTitle">🤖 AI & Machine Learning</h2>
+            <div class="strategy-badge">
+              <span class="strategy-icon">🎯 Strategic Focus:</span>
+              <span id="currentTopicStrategy">Loading strategy...</span>
+            </div>
+            <!-- Monitored Keywords Chips list in YAML -->
+            <div class="topic-keywords-container">
+              <span class="keywords-label">🔑 Monitored Keywords (Saved in YAML):</span>
+              <div id="currentTopicKeywordsList" class="keywords-chips-list">
+                <!-- Dynamically populated chips -->
+              </div>
+              <div class="inline-add-keyword-wrapper">
+                <input type="text" id="inlineKeywordInput" class="input-keyword-inline" placeholder="+ Add keyword to YAML...">
+                <button id="btnInlineAddKeyword" class="btn-keyword-add" title="Save keyword to YAML">+</button>
+              </div>
+            </div>
+          </div>
+          <button id="btnPlayTopicAudio" class="btn btn-listen" title="Agent will speak this entire section thoroughly">
+            🔊 Play This Section Broadcast
+          </button>
+        </div>
+
+        <div id="topicNewsCardsGrid" class="news-cards-grid compact-layout">
+          <!-- News cards inserted here -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Slide-Out Agent Dialogue & Voice Drawer -->
+    <aside id="agentChatDrawer" class="chat-drawer closed">
+      <div class="chat-header">
+        <div class="chat-header-title">
+          <span class="agent-avatar">🤖</span>
+          <div>
+            <h3>News Intelligence Agent</h3>
+            <span class="status-online">● Active & Listening</span>
+          </div>
+        </div>
+        <button id="btnCloseChat" class="btn-close-drawer">✕</button>
+      </div>
+
+      <div id="chatMessages" class="chat-messages">
+        <div class="chat-bubble agent-bubble">
+          <p>Hello! I am your <strong>News & Analysis Agent</strong>. You can ask questions about indexed news, instruct me to modify your topic strategies, or speak commands naturally.</p>
+        </div>
+      </div>
+
+      <div class="chat-input-container">
+        <div class="chat-input-box">
+          <textarea id="chatInputText" placeholder="Ask a question or speak a command (e.g. 'Add topic on Quantum Computing')..." rows="1"></textarea>
+          <button id="btnChatMic" class="btn-mic-chat" title="Toggle Speech-To-Text">🎙️</button>
+        </div>
+        <button id="btnSendChat" class="btn btn-primary btn-send">Send</button>
+      </div>
+    </aside>
+
+    <!-- Configuration & YAML Editor Modal -->
+    <div id="configModal" class="modal-overlay hidden">
+      <div class="modal-box modal-lg">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <h2>⚙️ Agent Configuration & Strategy UX</h2>
+            <span id="configFilePathBadge" class="file-path-badge">config.user.yaml</span>
+          </div>
+          <button id="btnCloseConfigModal" class="btn-close-modal">✕</button>
+        </div>
+
+        <!-- Mode Switcher Tabs: Visual Form vs Raw YAML -->
+        <div class="config-mode-tabs">
+          <button id="btnModeVisual" class="config-mode-tab active">📋 Visual Form Editor</button>
+          <button id="btnModeYaml" class="config-mode-tab">📝 Raw YAML Editor</button>
+        </div>
+
+        <!-- Visual Form Mode Pane -->
+        <div id="paneVisualConfig" class="modal-body">
+          <div class="config-section">
+            <div class="section-title-row">
+              <h3>🤖 LLM Intelligence Engine</h3>
+              <span class="config-section-subtitle">Choose between ultra-fast DeepSeek Online or Local Ollama</span>
+            </div>
+            <div class="form-row">
+              <label for="configLlmProvider">AI Provider:</label>
+              <select id="configLlmProvider" class="form-select">
+                <option value="deepseek">⚡ DeepSeek AI (Online API - High Speed)</option>
+                <option value="local">🖥️ Local LLM (Ollama / Local Server)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="configLlmModelSelect">Model Selection:</label>
+              <div class="model-select-wrapper">
+                <select id="configLlmModelSelect" class="form-select">
+                  <!-- Populated dynamically -->
+                </select>
+                <button type="button" id="btnRefreshModels" class="btn btn-secondary btn-sm" title="Refresh available models">🔄</button>
+              </div>
+            </div>
+            <!-- Custom model text input if custom selected -->
+            <div class="form-row hidden" id="rowCustomModel">
+              <label for="configLlmCustomModel">Custom Model ID:</label>
+              <input type="text" id="configLlmCustomModel" class="form-input" placeholder="e.g. deepseek-chat or llama3.3:latest">
+            </div>
+            <div class="form-row" id="rowApiKey">
+              <label for="configLlmApiKey">
+                <span>DeepSeek API Key:</span>
+                <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener" class="form-label-link">Get API Key ↗</a>
+              </label>
+              <div class="input-with-action">
+                <input type="password" id="configLlmApiKey" class="form-input" placeholder="sk-..." autocomplete="off">
+                <button type="button" id="btnToggleApiKeyVisibility" class="btn btn-secondary btn-sm" title="Show/Hide API Key">👁️</button>
+              </div>
+            </div>
+            <div class="form-row" id="rowLocalUrl">
+              <label for="configLlmLocalUrl">Local Ollama URL:</label>
+              <input type="text" id="configLlmLocalUrl" class="form-input" placeholder="http://localhost:11434/v1">
+            </div>
+            <!-- Connection Test Bar -->
+            <div class="llm-test-bar">
+              <button type="button" id="btnTestLlmConnection" class="btn btn-test-conn">
+                ⚡ Test Connection
+              </button>
+              <div id="llmTestStatus" class="test-status-pill hidden"></div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="section-title-row">
+              <h3>Dynamic Topics & Strategies</h3>
+              <button id="btnAddNewTopicModal" class="btn btn-secondary btn-sm">+ Add New Topic</button>
+            </div>
+            <div id="topicsConfigList" class="topics-list-container">
+              <!-- Dynamically rendered topic editor cards -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Raw YAML File Mode Pane -->
+        <div id="paneYamlConfig" class="modal-body hidden">
+          <div class="yaml-editor-header">
+            <span class="yaml-tip">💡 You can directly view, edit, and save your <code>.yaml</code> configuration file below. It persists immediately.</span>
+            <button id="btnReloadYaml" class="btn btn-secondary btn-sm">🔄 Reload from Disk</button>
+          </div>
+          <div class="yaml-editor-wrapper">
+            <textarea id="rawYamlEditor" class="yaml-textarea" spellcheck="false" placeholder="# Loading YAML configuration..."></textarea>
+          </div>
+          <div id="yamlErrorAlert" class="yaml-error-alert hidden"></div>
+        </div>
+
+        <div class="modal-footer">
+          <div id="yamlStatusNotice" class="status-notice"></div>
+          <button id="btnSaveConfig" class="btn btn-primary">💾 Save to YAML File</button>
+          <button id="btnCancelConfig" class="btn btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/voice.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

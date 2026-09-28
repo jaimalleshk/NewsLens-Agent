@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "news-agent-core"
+version = "0.1.0"
+description = "Autonomous News & Analysis Agent platform with Live RAG, Dynamic Topics, DeepSeek/Local LLM, and Natural Voice Intelligence"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "httpx>=0.25.0",
+    "beautifulsoup4>=4.12.0",
+    "feedparser>=6.0.10",
+    "duckduckgo-search>=6.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "python-multipart>=0.0.9",
+    "rich>=13.7.0",
+    "typer>=0.12.0",
+    "edge-tts>=6.1.9",
+    "numpy>=1.24.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0"
+]
+
+[project.scripts]
+news-agent = "cli.main:app"
+news-server = "backend.server:start"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
+
