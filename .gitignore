@@ -1,4 +1,4 @@
-﻿# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *.class
@@ -30,3 +30,7 @@ logs/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local SQLite databases
+data/*.db
+*.db

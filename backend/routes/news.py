@@ -15,11 +15,12 @@ agent = NewsAnalystAgent(config_manager=config_mgr)
 @router.post("/stream")
 async def stream_news(
     start_date: str = Query(..., description="Start date YYYY-MM-DD"),
-    end_date: str = Query(..., description="End date YYYY-MM-DD")
+    end_date: str = Query(..., description="End date YYYY-MM-DD"),
+    force_refresh: bool = Query(False, description="Force live news refresh bypassing local SQLite cache")
 ):
     """Stream news intelligence aggregation in real-time as each topic completes."""
     async def event_generator():
-        async for event in agent.stream_aggregate_all_topics(start_date, end_date):
+        async for event in agent.stream_aggregate_all_topics(start_date, end_date, force_refresh=force_refresh):
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
@@ -36,7 +37,7 @@ async def stream_news(
 @router.post("/aggregate")
 async def aggregate_all(req: AggregateRequest):
     """Run full news aggregation for active topics within date range."""
-    digest = await agent.aggregate_all_topics(req.start_date, req.end_date)
+    digest = await agent.aggregate_all_topics(req.start_date, req.end_date, force_refresh=req.force_refresh)
     return digest
 
 
@@ -47,7 +48,7 @@ async def get_topic_news(req: TopicNewsRequest):
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    result = await agent.analyze_topic(topic, req.start_date, req.end_date)
+    result = await agent.analyze_topic(topic, req.start_date, req.end_date, force_refresh=req.force_refresh)
     return result
 
 

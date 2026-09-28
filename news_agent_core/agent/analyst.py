@@ -27,6 +27,7 @@ from ..llm.prompts import (
     CROSS_TOPIC_EXECUTIVE_DIGEST_PROMPT
 )
 from .clusterer import StoryClusterer
+from ..storage.sqlite_db import SQLiteNewsCache
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class NewsAnalystAgent:
         self.vector_store = NewsVectorStore()
         self.clusterer = StoryClusterer(similarity_threshold=0.4)
         self.llm = UnifiedLLMClient(self.config.llm)
+        self.cache = SQLiteNewsCache()
         self.latest_digest: Optional[AggregatedNewsDigest] = None
 
     def reload_config(self) -> None:
@@ -383,8 +385,23 @@ class NewsAnalystAgent:
             if res.items:
                 overview_blocks.append(f"#### {res.topic_icon} {res.topic_title} ({len(res.items)} Developments)")
                 for it in res.items:
-                    clean_what = it.summary.line1_what.strip()
-                    overview_blocks.append(f"• **{it.title}** *({it.publisher})* — {clean_what}")
+                    clean_what = it.summary.line1_what.strip() if it.summary else ""
+                    clean_title = it.title.strip()
+                    # Check if title and clean_what are redundant
+                    norm_t = re.sub(r"[^\w\s]", "", clean_title.lower()).strip()
+                    norm_w = re.sub(r"[^\w\s]", "", clean_what.lower()).strip()
+                    words_t = set(w for w in norm_t.split() if len(w) > 3)
+                    words_w = set(w for w in norm_w.split() if len(w) > 3)
+                    overlap = len(words_t.intersection(words_w))
+                    is_dup = (
+                        norm_t == norm_w
+                        or (words_t and words_w and (overlap / min(len(words_t), len(words_w))) >= 0.8)
+                        or (norm_t in norm_w or norm_w in norm_t)
+                    )
+                    if is_dup or not clean_what:
+                        overview_blocks.append(f"• **{it.title}** *({it.publisher})*")
+                    else:
+                        overview_blocks.append(f"• **{it.title}** *({it.publisher})* — {clean_what}")
                 overview_blocks.append("")
             else:
                 overview_blocks.append(f"#### {res.topic_icon} {res.topic_title} (0 Developments)")
@@ -414,9 +431,18 @@ class NewsAnalystAgent:
         topic: TopicConfig,
         start_date: str,
         end_date: str,
-        progress_cb: Optional[Callable[[str], None]] = None
+        progress_cb: Optional[Callable[[str], None]] = None,
+        force_refresh: bool = False
     ) -> TopicNewsResult:
         """Run complete retrieval, RAG, and summarization pipeline for one topic."""
+        # Check SQLite persistent cache first if not forced refresh
+        if not force_refresh:
+            cached_res = self.cache.get_topic_result(topic.id, start_date, end_date)
+            if cached_res is not None and cached_res.items:
+                if progress_cb:
+                    progress_cb(f"Loaded cached news for {topic.title} ({start_date} to {end_date}).")
+                return cached_res
+
         target_max = topic.max_articles or self.config.search.max_results_per_topic
 
         if progress_cb:
@@ -429,8 +455,12 @@ class NewsAnalystAgent:
             max_articles=target_max
         )
 
+        # Cache raw articles in SQLite
+        if raw_articles:
+            self.cache.save_raw_articles(raw_articles, topic.id)
+
         if not raw_articles:
-            return TopicNewsResult(
+            empty_res = TopicNewsResult(
                 topic_id=topic.id,
                 topic_title=topic.title,
                 topic_icon=topic.icon,
@@ -440,6 +470,8 @@ class NewsAnalystAgent:
                 items=[],
                 executive_audio_script=f"No major news events were identified for {topic.title} in this date window."
             )
+            self.cache.save_topic_result(empty_res)
+            return empty_res
 
         # Index into RAG vector store
         self.vector_store.add_articles(raw_articles)
@@ -507,7 +539,7 @@ CRITICAL RULES:
             if is_insufficient:
                 topic_audio_script = self._build_topic_spoken_broadcast(topic, valid_items, start_date, end_date)
 
-        return TopicNewsResult(
+        final_res = TopicNewsResult(
             topic_id=topic.id,
             topic_title=topic.title,
             topic_icon=topic.icon,
@@ -517,14 +549,26 @@ CRITICAL RULES:
             items=valid_items,
             executive_audio_script=topic_audio_script
         )
+        self.cache.save_topic_result(final_res)
+        return final_res
 
     async def aggregate_all_topics(
         self,
         start_date: str,
         end_date: str,
-        progress_cb: Optional[Callable[[str], None]] = None
+        progress_cb: Optional[Callable[[str], None]] = None,
+        force_refresh: bool = False
     ) -> AggregatedNewsDigest:
         """Run full cross-topic news intelligence aggregation."""
+        # Check SQLite cache first if not forced refresh
+        if not force_refresh:
+            cached_digest = self.cache.get_digest(start_date, end_date)
+            if cached_digest is not None:
+                self.latest_digest = cached_digest
+                return cached_digest
+        else:
+            self.cache.clear_cache(start_date, end_date)
+
         self.reload_config()
         self.vector_store.clear()
 
@@ -536,7 +580,7 @@ CRITICAL RULES:
             progress_cb(f"Starting news analysis across {len(enabled_topics)} topics...")
 
         topic_tasks = [
-            self.analyze_topic(topic, start_date, end_date, progress_cb)
+            self.analyze_topic(topic, start_date, end_date, progress_cb, force_refresh=force_refresh)
             for topic in enabled_topics
         ]
         topic_results = await asyncio.gather(*topic_tasks)
@@ -555,6 +599,7 @@ CRITICAL RULES:
             total_articles_indexed=len(self.vector_store.chunks)
         )
 
+        self.cache.save_digest(digest)
         self.latest_digest = digest
         return digest
 
@@ -562,9 +607,37 @@ CRITICAL RULES:
         self,
         start_date: str,
         end_date: str,
-        concurrency_limit: int = 8
+        concurrency_limit: int = 8,
+        force_refresh: bool = False
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """Stream news intelligence aggregation in real-time as each topic finishes."""
+        # Return instantly from SQLite cache if available and not force refresh
+        if not force_refresh:
+            cached_digest = self.cache.get_digest(start_date, end_date)
+            if cached_digest is not None:
+                yield {
+                    "event": "start",
+                    "total_topics": len(cached_digest.topic_results),
+                    "topics": [{"id": t.topic_id, "title": t.topic_title, "icon": t.topic_icon} for t in cached_digest.topic_results],
+                    "start_date": start_date,
+                    "end_date": end_date
+                }
+                for idx, res in enumerate(cached_digest.topic_results, 1):
+                    yield {
+                        "event": "topic_result",
+                        "completed_count": idx,
+                        "total_topics": len(cached_digest.topic_results),
+                        "topic": res.model_dump()
+                    }
+                self.latest_digest = cached_digest
+                yield {
+                    "event": "complete",
+                    "digest": cached_digest.model_dump()
+                }
+                return
+        else:
+            self.cache.clear_cache(start_date, end_date)
+
         self.reload_config()
         self.vector_store.clear()
 
@@ -585,7 +658,7 @@ CRITICAL RULES:
 
         async def process_single_topic(topic: TopicConfig) -> TopicNewsResult:
             async with semaphore:
-                return await self.analyze_topic(topic, start_date, end_date)
+                return await self.analyze_topic(topic, start_date, end_date, force_refresh=force_refresh)
 
         tasks = [asyncio.create_task(process_single_topic(t)) for t in enabled_topics]
 
@@ -613,6 +686,7 @@ CRITICAL RULES:
             topic_results=topic_results,
             total_articles_indexed=len(self.vector_store.chunks)
         )
+        self.cache.save_digest(digest)
         self.latest_digest = digest
 
         yield {

@@ -49,8 +49,9 @@ class NewsLensApp {
     btn1Line?.addEventListener("click", () => this.setViewMode("compact"));
     btn5Lines?.addEventListener("click", () => this.setViewMode("full"));
 
-    // Ingestion Button
-    document.getElementById("btnFetchNews").addEventListener("click", () => this.runNewsAggregation());
+    // Ingestion & Refresh Buttons
+    document.getElementById("btnFetchNews")?.addEventListener("click", () => this.runNewsAggregation(false));
+    document.getElementById("btnRefreshNews")?.addEventListener("click", () => this.runNewsAggregation(true));
 
     // Top Voice Command Button
     const btnVoice = document.getElementById("btnVoiceCommand");
@@ -486,7 +487,7 @@ class NewsLensApp {
     }
   }
 
-  async runNewsAggregation() {
+  async runNewsAggregation(forceRefresh = false) {
     const startDate = document.getElementById("startDate").value;
     const endDate = document.getElementById("endDate").value;
 
@@ -496,9 +497,12 @@ class NewsLensApp {
     const bannerText = document.getElementById("streamingProgressText");
 
     if (banner) banner.classList.remove("hidden");
-    if (bannerText) bannerText.textContent = "Connecting to real-time intelligence stream...";
+    const connectingMsg = forceRefresh 
+      ? "Forcing live news refresh across all topics..." 
+      : "Connecting to real-time intelligence stream...";
+    if (bannerText) bannerText.textContent = connectingMsg;
     if (overlay) overlay.classList.remove("hidden");
-    if (statusText) statusText.textContent = "Connecting to real-time intelligence stream...";
+    if (statusText) statusText.textContent = connectingMsg;
 
     // Initialize/reset currentDigest for live progressive updates
     this.currentDigest = {
@@ -517,7 +521,8 @@ class NewsLensApp {
     }
 
     try {
-      const response = await fetch(`/api/news/stream?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`);
+      const refreshQuery = forceRefresh ? "&force_refresh=true" : "";
+      const response = await fetch(`/api/news/stream?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}${refreshQuery}`);
       if (!response.ok) throw new Error(`Streaming failed with status ${response.status}`);
 
       const reader = response.body.getReader();
@@ -550,7 +555,7 @@ class NewsLensApp {
         const resp = await fetch("/api/news/aggregate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ start_date: startDate, end_date: endDate })
+          body: JSON.stringify({ start_date: startDate, end_date: endDate, force_refresh: forceRefresh })
         });
         if (resp.ok) {
           this.currentDigest = await resp.json();
@@ -690,19 +695,41 @@ class NewsLensApp {
     });
   }
 
+  isTitleAndSummaryDuplicate(title, summary) {
+    if (!title || !summary) return false;
+    const cleanT = title.toLowerCase().replace(/[^\w\s]/g, "").trim();
+    const cleanS = summary.toLowerCase().replace(/[^\w\s]/g, "").trim();
+    if (!cleanT || !cleanS) return false;
+    if (cleanT === cleanS) return true;
+    if (cleanT.includes(cleanS) || cleanS.includes(cleanT)) return true;
+
+    const wordsT = new Set(cleanT.split(/\s+/).filter(w => w.length > 3));
+    const wordsS = new Set(cleanS.split(/\s+/).filter(w => w.length > 3));
+    if (wordsT.size === 0 || wordsS.size === 0) return false;
+
+    let overlap = 0;
+    for (const w of wordsT) {
+      if (wordsS.has(w)) overlap++;
+    }
+    const overlapRatio = overlap / Math.min(wordsT.size, wordsS.size);
+    return overlapRatio >= 0.8;
+  }
+
   createNewsCardElement(item, topicRes) {
     const card = document.createElement("article");
     const s = item.summary;
     const isCompact = this.viewMode === "compact";
+    const isDuplicate = this.isTitleAndSummaryDuplicate(item.title, s?.line1_what);
 
     if (isCompact) {
-      // Clean Compact Mode
+      // Clean Compact Mode - If title and summary are duplicate, omit the redundant trailing text
       card.className = "news-card compact-item";
+      const descHtml = (!isDuplicate && s?.line1_what) ? ` — <span class="story-desc">${s.line1_what}</span>` : "";
       card.innerHTML = `
         <div class="compact-row">
           <div class="compact-main">
             <div class="compact-headline-line">
-              <strong>${item.title}</strong> — <span class="story-desc">${s.line1_what}</span>
+              <strong>${item.title}</strong>${descHtml}
             </div>
             <div class="compact-meta">
               <span class="source-badge">${item.publisher}</span>
@@ -718,8 +745,11 @@ class NewsLensApp {
         </div>
       `;
     } else {
-      // Clean Expanded Card Mode
+      // Clean Expanded Card Mode - If duplicate, omit redundant summary card section
       card.className = "news-card";
+      const summaryHtml = (!isDuplicate && s?.line1_what)
+        ? `<div class="card-story-summary">${s.line1_what}</div>`
+        : "";
       card.innerHTML = `
         <div class="card-header">
           <div class="card-meta-row">
@@ -729,9 +759,7 @@ class NewsLensApp {
           <h3 class="card-title">${item.title}</h3>
         </div>
 
-        <div class="card-story-summary">
-          ${s.line1_what}
-        </div>
+        ${summaryHtml}
 
         <div class="card-footer">
           <button class="btn-card-audio">🔊 Read Aloud</button>
@@ -746,7 +774,7 @@ class NewsLensApp {
     const btnAudio = card.querySelector(".btn-card-audio");
     btnAudio?.addEventListener("click", (e) => {
       e.stopPropagation();
-      const speechText = item.natural_speech || `${item.title}. ${s.line1_what}`;
+      const speechText = item.natural_speech || (isDuplicate ? item.title : `${item.title}. ${s?.line1_what || ""}`);
       window.voiceEngine.playNaturalSpeech(speechText, item.title);
     });
 

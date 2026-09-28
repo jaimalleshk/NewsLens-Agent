@@ -188,3 +188,47 @@ async def test_full_coverage_executive_digest_and_spoken_broadcast():
     assert "Federal Reserve" in master_audio
 
 
+@pytest.mark.asyncio
+async def test_title_summary_deduplication_in_digest():
+    from news_agent_core.search.base import NewsItem, NewsSummary5Lines, TopicNewsResult
+
+    config_mgr = ConfigManager()
+    agent = NewsAnalystAgent(config_manager=config_mgr)
+
+    # Item where line1_what is identical or near-identical to title
+    dup_item = NewsItem(
+        id="dup-1",
+        title="Mayor Whitmire announces new Houston infrastructure plan",
+        url="https://example.com/houston",
+        publisher="Houston Chronicle",
+        published_date="2026-09-27",
+        topic_id="local_houston",
+        summary=NewsSummary5Lines(
+            line1_what="Mayor Whitmire announces new Houston infrastructure plan",
+            line2_context="City council discussions continue.",
+            line3_impact="Budget allocation of 50M.",
+            line4_data="12 projects scheduled.",
+            line5_outlook="Groundbreaking next month."
+        )
+    )
+
+    topic = TopicConfig(id="local_houston", title="Local Houston", icon="🏙️", strategy_prompt="Houston news")
+    res = TopicNewsResult(
+        topic_id=topic.id,
+        topic_title=topic.title,
+        topic_icon=topic.icon,
+        strategy_applied="Houston news",
+        start_date="2026-09-20",
+        end_date="2026-09-27",
+        items=[dup_item],
+        executive_audio_script="Houston local news."
+    )
+
+    overview_md, _ = await agent._synthesize_executive_digest([res], "2026-09-20", "2026-09-27")
+
+    # Verify that the redundant summary line is NOT repeated with '— Mayor Whitmire announces...'
+    assert "• **Mayor Whitmire announces new Houston infrastructure plan** *(Houston Chronicle)*" in overview_md
+    assert "*(Houston Chronicle)* — Mayor Whitmire announces new Houston infrastructure plan" not in overview_md
+
+
+

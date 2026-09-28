@@ -17,6 +17,7 @@ class TopicNewsRequest(BaseModel):
     topic_id: str
     start_date: str
     end_date: str
+    force_refresh: bool = False
 
 
 class ChatRequest(BaseModel):
