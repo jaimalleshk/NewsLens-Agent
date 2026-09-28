@@ -53,8 +53,23 @@ async def get_topic_news(req: TopicNewsRequest):
 
 
 @router.get("/latest")
-async def get_latest_digest():
-    """Get the cached latest digest if available."""
-    if not agent.latest_digest:
-        raise HTTPException(status_code=404, detail="No digest generated yet")
-    return agent.latest_digest
+async def get_latest_digest(
+    start_date: Optional[str] = Query(None, description="Optional start date YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="Optional end date YYYY-MM-DD")
+):
+    """Get the cached latest digest from SQLite persistent cache or memory."""
+    if start_date and end_date:
+        cached = agent.cache.get_digest(start_date, end_date)
+        if cached:
+            agent.latest_digest = cached
+            return cached
+
+    if agent.latest_digest:
+        return agent.latest_digest
+
+    cached_latest = agent.cache.get_latest_digest()
+    if cached_latest:
+        agent.latest_digest = cached_latest
+        return cached_latest
+
+    raise HTTPException(status_code=404, detail="No cached news digest available yet")

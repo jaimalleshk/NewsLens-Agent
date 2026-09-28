@@ -112,6 +112,24 @@ class NewsAnalystAgent:
         return article_list
 
 
+    def clean_question_headline(self, title: str) -> str:
+        """Sanitize question-style headlines and clickbait teasers into declarative news statements."""
+        if not title:
+            return ""
+        cleaned = title.strip()
+        patterns = [
+            r"^(What to know about|Everything you need to know about|Here is what to know about|Here'?s what you need to know about|Here is everything to know about)\s+",
+            r"^(Why|How|What|Where|When|Who)\s+(is|are|did|does|do|will|can|should|to)\s+",
+            r"^(Here'?s why|Here'?s how|This is why|Here are the|Top \d+ reasons why|Here is why|Here are \d+ things to know about)\s+",
+        ]
+        for p in patterns:
+            cleaned = re.sub(p, "", cleaned, flags=re.IGNORECASE).strip()
+        cleaned = cleaned.rstrip("?.: ")
+        if cleaned:
+            cleaned = cleaned[0].upper() + cleaned[1:]
+        return cleaned or title
+
+
     def _fast_extractive_summary(
         self,
         cluster: List[RawArticle],
@@ -123,21 +141,21 @@ class NewsAnalystAgent:
         if not cluster:
             return None
         primary_article = cluster[0]
+        cleaned_title = self.clean_question_headline(primary_article.title)
         content_snippet = (primary_article.snippet or primary_article.title).strip()
         sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", content_snippet) if len(s.strip()) > 15]
 
-        s1 = sentences[0] if len(sentences) > 0 else f"{primary_article.title} reported with direct relevance to {topic.title}."
-        s2 = sentences[1] if len(sentences) > 1 else f"Coverage reported by {primary_article.source} highlighting industry movements."
-        s3 = f"Strategic focus centers on competitive execution and sector positioning for {topic.title}."
-        s4 = f"Verified reporting sourced from {primary_article.source}."
-        s5 = "Ongoing operational developments and follow-up milestones being tracked."
+        # Construct substantive converged 30-50 word analytical summary
+        lead = sentences[0] if len(sentences) > 0 else cleaned_title
+        context_extra = sentences[1] if len(sentences) > 1 else f"Developments tracked with strategic relevance to {topic.title}."
+        converged_what = f"{cleaned_title}: {lead} Strategic analysis highlights major shifts across {topic.title} infrastructure and market execution."
 
         summary = NewsSummary5Lines(
-            line1_what=s1,
-            line2_context=s2,
-            line3_impact=s3,
-            line4_data=s4,
-            line5_outlook=s5
+            line1_what=converged_what,
+            line2_context=context_extra,
+            line3_impact=f"Significant competitive and operational impact for {topic.title} stakeholders.",
+            line4_data=f"Verified reporting sourced directly from {primary_article.source}.",
+            line5_outlook="Ongoing developments and follow-up milestones actively monitored."
         )
 
         additional = [
@@ -148,14 +166,14 @@ class NewsAnalystAgent:
 
         return NewsItem(
             id=primary_article.id,
-            title=primary_article.title,
+            title=cleaned_title,
             url=primary_article.url,
             additional_sources=additional,
             publisher=primary_article.source,
             published_date=primary_article.published_date or start_date,
             topic_id=topic.id,
             summary=summary,
-            natural_speech=f"In {topic.title}, {primary_article.title}. {s1}",
+            natural_speech=f"{cleaned_title}. {lead}",
             relevance_score=primary_article.score
         )
 
@@ -181,7 +199,7 @@ class NewsAnalystAgent:
             strategy_prompt=topic.strategy_prompt,
             start_date=start_date,
             end_date=end_date,
-            article_title=primary_article.title,
+            article_title=self.clean_question_headline(primary_article.title),
             source=primary_article.source,
             published_date=primary_article.published_date or start_date,
             article_content=combined_content[:3000]
@@ -189,7 +207,7 @@ class NewsAnalystAgent:
 
         response_text = await self.llm.generate_completion(
             prompt=prompt,
-            system_prompt="You are a senior intelligence analyst. Output strictly valid JSON.",
+            system_prompt="You are a senior intelligence analyst. Output strictly valid JSON with declarative non-question titles and 30-50 word analytical summaries.",
             json_mode=True
         )
 
@@ -201,9 +219,11 @@ class NewsAnalystAgent:
                 json_str = json_str.split("```")[1].split("```")[0].strip()
 
             data = json.loads(json_str)
+            raw_parsed_title = data.get("title") or primary_article.title
+            parsed_title = self.clean_question_headline(raw_parsed_title)
 
             summary = NewsSummary5Lines(
-                line1_what=data.get("line1_what", primary_article.title),
+                line1_what=data.get("line1_what", parsed_title),
                 line2_context=data.get("line2_context", "Background context in sector evolution."),
                 line3_impact=data.get("line3_impact", "Significant strategic and market impact."),
                 line4_data=data.get("line4_data", "Measurable momentum across industry data."),
@@ -218,7 +238,7 @@ class NewsAnalystAgent:
 
             return NewsItem(
                 id=primary_article.id,
-                title=data.get("title", primary_article.title),
+                title=parsed_title,
                 url=primary_article.url,
                 additional_sources=additional,
                 publisher=primary_article.source,

@@ -122,7 +122,7 @@ class VoiceEngine {
     if (!text || !text.trim()) return;
 
     this.banner.classList.remove("hidden");
-    this.bannerTitle.textContent = title;
+    this.bannerTitle.textContent = `⏳ Loading spoken audio for ${title}...`;
 
     try {
       const resp = await fetch("/api/voice/tts", {
@@ -131,7 +131,10 @@ class VoiceEngine {
         body: JSON.stringify({ text: text })
       });
 
-      if (!resp.ok) throw new Error("TTS generation failed");
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        throw new Error(errJson.detail || `TTS generation failed with status ${resp.status}`);
+      }
 
       if (this.currentBlobUrl) {
         URL.revokeObjectURL(this.currentBlobUrl);
@@ -141,14 +144,16 @@ class VoiceEngine {
       this.currentBlobUrl = URL.createObjectURL(blob);
 
       this.audioPlayer.src = this.currentBlobUrl;
+      this.bannerTitle.textContent = title;
       this.audioPlayer.playbackRate = this.speedSelect ? parseFloat(this.speedSelect.value) : playbackSpeed;
       await this.audioPlayer.play();
     } catch (err) {
       console.warn("Backend TTS playback failed, fallback to Web Speech API:", err);
+      this.bannerTitle.textContent = title;
       if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
         const utter = new SpeechSynthesisUtterance(text);
-        utter.rate = this.speedSelect ? parseFloat(this.speedSelect.value) : 1.1;
+        utter.rate = this.speedSelect ? parseFloat(this.speedSelect.value) : 1.0;
         utter.pitch = 1.0;
         utter.onend = () => {
           if (this.playlist.length > 0 && this.currentIndex < this.playlist.length - 1) {
@@ -156,6 +161,8 @@ class VoiceEngine {
           }
         };
         window.speechSynthesis.speak(utter);
+      } else {
+        alert(`Audio synthesis error: ${err.message}`);
       }
     }
   }

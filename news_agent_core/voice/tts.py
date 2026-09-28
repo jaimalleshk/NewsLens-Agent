@@ -86,6 +86,33 @@ class NaturalVoiceBriefer:
         text = re.sub(r"\s+", " ", text).strip()
         return text
 
+    def _split_text_into_chunks(self, text: str, max_chunk_chars: int = 1800) -> list[str]:
+        """Split text into clean, sentence-bounded chunks suitable for Edge TTS synthesis."""
+        if not text:
+            return []
+        if len(text) <= max_chunk_chars:
+            return [text]
+
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+        chunks: list[str] = []
+        current_chunk: list[str] = []
+        current_len = 0
+
+        for sentence in sentences:
+            sentence_len = len(sentence)
+            if current_len + sentence_len > max_chunk_chars and current_chunk:
+                chunks.append(" ".join(current_chunk))
+                current_chunk = [sentence]
+                current_len = sentence_len
+            else:
+                current_chunk.append(sentence)
+                current_len += sentence_len + 1
+
+        if current_chunk:
+            chunks.append(" ".join(current_chunk))
+
+        return chunks
+
     async def generate_speech_audio(
         self,
         text: str,
@@ -93,7 +120,7 @@ class NaturalVoiceBriefer:
         rate: Optional[str] = None,
         pitch: Optional[str] = None
     ) -> bytes:
-        """Synthesize natural speech audio and return MP3 bytes."""
+        """Synthesize natural speech audio and return MP3 bytes with chunked streaming support."""
         clean_text = self.clean_text_for_speech(text)
         if not clean_text:
             return b""
@@ -102,17 +129,29 @@ class NaturalVoiceBriefer:
         selected_rate = rate or self.config.tts_rate
         selected_pitch = pitch or self.config.tts_pitch
 
-        communicate = edge_tts.Communicate(
-            text=clean_text,
-            voice=selected_voice,
-            rate=selected_rate,
-            pitch=selected_pitch
-        )
+        chunks = self._split_text_into_chunks(clean_text, max_chunk_chars=1800)
+
+        async def synthesize_chunk(chunk_text: str) -> bytes:
+            communicate = edge_tts.Communicate(
+                text=chunk_text,
+                voice=selected_voice,
+                rate=selected_rate,
+                pitch=selected_pitch
+            )
+            audio_pieces = []
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_pieces.append(chunk["data"])
+            return b"".join(audio_pieces)
 
         audio_chunks = []
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_chunks.append(chunk["data"])
+        for c in chunks:
+            try:
+                chunk_bytes = await synthesize_chunk(c)
+                if chunk_bytes:
+                    audio_chunks.append(chunk_bytes)
+            except Exception as e:
+                logger.warning(f"Error synthesizing TTS chunk: {e}")
 
         return b"".join(audio_chunks)
 

@@ -168,12 +168,25 @@ class SQLiteNewsCache:
             conn.commit()
 
     def get_digest(self, start_date: str, end_date: str) -> Optional[AggregatedNewsDigest]:
-        """Retrieve cached AggregatedNewsDigest if exists."""
+        """Retrieve cached AggregatedNewsDigest for specific date window if exists."""
         digest_id = f"{start_date}_{end_date}"
         with self._get_connection() as conn:
             cur = conn.execute("""
                 SELECT digest_json FROM aggregated_digests WHERE digest_id = ?
             """, (digest_id,))
+            row = cur.fetchone()
+            if not row:
+                return None
+            data = json.loads(row["digest_json"])
+            return AggregatedNewsDigest.model_validate(data)
+
+    def get_latest_digest(self) -> Optional[AggregatedNewsDigest]:
+        """Retrieve the most recently cached AggregatedNewsDigest from SQLite."""
+        with self._get_connection() as conn:
+            cur = conn.execute("""
+                SELECT digest_json FROM aggregated_digests 
+                ORDER BY created_at DESC LIMIT 1
+            """)
             row = cur.fetchone()
             if not row:
                 return None

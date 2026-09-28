@@ -28,7 +28,7 @@ class NewsLensApp {
   initEventListeners() {
     // Preset Buttons
     document.querySelectorAll(".btn-preset").forEach(btn => {
-      btn.addEventListener("click", (e) => {
+      btn.addEventListener("click", async (e) => {
         document.querySelectorAll(".btn-preset").forEach(b => b.classList.remove("active"));
         e.target.classList.add("active");
         const days = parseInt(e.target.dataset.days, 10);
@@ -39,8 +39,12 @@ class NewsLensApp {
         const fmt = (d) => d.toISOString().split("T")[0];
         document.getElementById("startDate").value = fmt(start);
         document.getElementById("endDate").value = fmt(today);
+        await this.loadCachedDigestIfExists();
       });
     });
+
+    document.getElementById("startDate")?.addEventListener("change", () => this.loadCachedDigestIfExists());
+    document.getElementById("endDate")?.addEventListener("change", () => this.loadCachedDigestIfExists());
 
     // View Density Switcher (1-Line vs 5-Lines)
     const btn1Line = document.getElementById("btnView1Line");
@@ -77,9 +81,19 @@ class NewsLensApp {
     }
 
     // Audio Play All Buttons (Continuous Section-by-Section Spoken Broadcast)
-    document.getElementById("btnPlayAllAudio")?.addEventListener("click", () => {
+    document.getElementById("btnPlayAllAudio")?.addEventListener("click", async () => {
+      if (!this.currentDigest) {
+        try {
+          const resp = await fetch("/api/news/latest");
+          if (resp.ok) {
+            this.currentDigest = await resp.json();
+            this.renderDynamicTabs();
+          }
+        } catch (e) {}
+      }
+
       if (!this.currentDigest || !this.currentDigest.topic_results || this.currentDigest.topic_results.length === 0) {
-        alert("Please run Ingestion first to generate an audio digest.");
+        alert("Please click 'Run Ingestion' or 'Refresh News' first to fetch and synthesize news.");
         return;
       }
 
@@ -88,7 +102,6 @@ class NewsLensApp {
 
       // 1. Introductory Overview Section
       if (this.currentDigest.executive_overview) {
-        // Extract macro synthesis paragraphs for the introductory broadcast
         const macroMatch = this.currentDigest.executive_overview.match(/### 📊 Macro Strategic Cross-Sector Synthesis\s*([\s\S]+?)(?=\n---|\Z)/);
         let introText = macroMatch ? macroMatch[1] : this.currentDigest.executive_overview;
         introText = introText.replace(/[#*`_\[\]•]/g, "").replace(/\n+/g, " ").trim();
@@ -96,30 +109,20 @@ class NewsLensApp {
           introText = introText.slice(0, 500) + "...";
         }
 
+        const totalArticles = this.currentDigest.topic_results.reduce((acc, t) => acc + (t.items ? t.items.length : 0), 0);
         sections.push({
           id: "overview",
           title: "Executive Cross-Topic Overview",
           icon: "🌐",
-          script: `Welcome to your Executive News Intelligence Briefing for ${this.currentDigest.start_date} to ${this.currentDigest.end_date}. ${introText}`,
-          storiesCount: this.currentDigest.topic_results.reduce((acc, t) => acc + (t.items ? t.items.length : 0), 0)
+          script: `Welcome to your Executive News Intelligence Briefing for ${this.currentDigest.start_date} to ${this.currentDigest.end_date}, covering ${this.currentDigest.topic_results.length} verticals and ${totalArticles} curated developments. ${introText}`,
+          storiesCount: totalArticles
         });
       }
 
       // 2. Add each topic section with its complete full-coverage spoken script
       this.currentDigest.topic_results.forEach(topicRes => {
         if (topicRes.items && topicRes.items.length > 0) {
-          let script = topicRes.executive_audio_script;
-          const isGeneric = !script || script.length < 80 || script.includes("Intelligence synthesis completed") || script.includes("Intelligence summary for current");
-          if (isGeneric) {
-            const cleanTitle = (topicRes.topic_title || "").replace(/^[^\w\s]+/, "").trim();
-            const storyParts = topicRes.items.map((it, idx) => {
-              const transition = idx === 0 ? "Starting with" : (idx === topicRes.items.length - 1 && topicRes.items.length > 1 ? "Finally," : "Next in headlines,");
-              const text = (it.summary && it.summary.line1_what) ? it.summary.line1_what.trim() : it.title.trim();
-              return `${transition} ${text.replace(/\.+$/, "")}.`;
-            });
-            script = `Here is your news briefing for ${cleanTitle}, covering ${topicRes.items.length} developments. ${storyParts.join(" ")} That concludes all updates for ${cleanTitle}.`;
-          }
-
+          const script = this.buildSpokenScriptForTopic(topicRes);
           sections.push({
             id: topicRes.topic_id,
             title: topicRes.topic_title,
@@ -135,26 +138,33 @@ class NewsLensApp {
       });
     });
 
-    document.getElementById("btnPlayTopicAudio")?.addEventListener("click", () => {
-      if (!this.currentDigest) return;
-      const topicRes = this.currentDigest.topic_results.find(t => t.topic_id === this.activeTopicId);
-      if (topicRes) {
-        let script = topicRes.executive_audio_script;
-        const isGeneric = !script || script.length < 80 || script.includes("Intelligence synthesis completed") || script.includes("Intelligence summary for current");
-        if (isGeneric && topicRes.items && topicRes.items.length > 0) {
-          const cleanTitle = (topicRes.topic_title || "").replace(/^[^\w\s]+/, "").trim();
-          const storyParts = topicRes.items.map((it, idx) => {
-            const transition = idx === 0 ? "Starting with" : (idx === topicRes.items.length - 1 && topicRes.items.length > 1 ? "Finally," : "Next in headlines,");
-            const text = (it.summary && it.summary.line1_what) ? it.summary.line1_what.trim() : it.title.trim();
-            return `${transition} ${text.replace(/\.+$/, "")}.`;
-          });
-          script = `Here is your news briefing for ${cleanTitle}, covering ${topicRes.items.length} developments. ${storyParts.join(" ")} That concludes all updates for ${cleanTitle}.`;
-        }
-        window.voiceEngine.playNaturalSpeech(
-          script,
-          `${topicRes.topic_title} Spoken Briefing`
-        );
+    document.getElementById("btnPlayTopicAudio")?.addEventListener("click", async () => {
+      if (!this.currentDigest) {
+        try {
+          const resp = await fetch("/api/news/latest");
+          if (resp.ok) {
+            this.currentDigest = await resp.json();
+            this.renderDynamicTabs();
+          }
+        } catch (e) {}
       }
+
+      if (!this.currentDigest) {
+        alert("Please click 'Run Ingestion' or 'Refresh News' first to fetch and synthesize news.");
+        return;
+      }
+
+      const topicRes = this.currentDigest.topic_results.find(t => t.topic_id === this.activeTopicId);
+      if (!topicRes || !topicRes.items || topicRes.items.length === 0) {
+        alert(`No news articles found for this topic in the selected date window.`);
+        return;
+      }
+
+      const script = this.buildSpokenScriptForTopic(topicRes);
+      window.voiceEngine.playNaturalSpeech(
+        script,
+        `${topicRes.topic_title} Spoken Briefing`
+      );
     });
 
     // Header LLM Status Badge click
@@ -378,8 +388,44 @@ class NewsLensApp {
 
       this.renderDynamicTabs();
       this.updateHeaderLlmBadge();
+
+      // Automatically load latest cached digest from SQLite if exists
+      await this.loadCachedDigestIfExists();
     } catch (e) {
       console.warn("Using default topics:", e);
+    }
+  }
+
+  async loadCachedDigestIfExists() {
+    const startDate = document.getElementById("startDate")?.value;
+    const endDate = document.getElementById("endDate")?.value;
+    try {
+      let url = "/api/news/latest";
+      if (startDate && endDate) {
+        url = `/api/news/latest?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+      }
+      let resp = await fetch(url);
+      if (!resp.ok && url !== "/api/news/latest") {
+        // Fallback to most recent digest in SQLite
+        resp = await fetch("/api/news/latest");
+      }
+      if (resp.ok) {
+        this.currentDigest = await resp.json();
+        if (this.currentDigest.start_date && this.currentDigest.end_date) {
+          const sInput = document.getElementById("startDate");
+          const eInput = document.getElementById("endDate");
+          if (sInput) sInput.value = this.currentDigest.start_date;
+          if (eInput) eInput.value = this.currentDigest.end_date;
+        }
+        this.renderDynamicTabs();
+        if (this.activeTopicId === "overview") {
+          this.renderOverviewPane();
+        } else {
+          this.renderTopicPane(this.activeTopicId);
+        }
+      }
+    } catch (err) {
+      console.debug("No cached digest loaded:", err);
     }
   }
 
@@ -695,6 +741,25 @@ class NewsLensApp {
     });
   }
 
+  cleanHeadline(rawTitle) {
+    if (!rawTitle) return "";
+    let cleaned = rawTitle.trim();
+    // Strip common question and clickbait prefixes
+    const patterns = [
+      /^(What to know about|Everything you need to know about|Here is what to know about|Here'?s what you need to know about|Here is everything to know about)\s+/i,
+      /^(Why|How|What|Where|When|Who)\s+(is|are|did|does|do|will|can|should|to)\s+/i,
+      /^(Here'?s why|Here'?s how|This is why|Here are the|Top \d+ reasons why|Here is why|Here are \d+ things to know about)\s+/i
+    ];
+    for (const pat of patterns) {
+      cleaned = cleaned.replace(pat, "").trim();
+    }
+    cleaned = cleaned.replace(/[?.:\s]+$/, "");
+    if (cleaned.length > 0) {
+      cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    }
+    return cleaned || rawTitle;
+  }
+
   isTitleAndSummaryDuplicate(title, summary) {
     if (!title || !summary) return false;
     const cleanT = title.toLowerCase().replace(/[^\w\s]/g, "").trim();
@@ -712,24 +777,35 @@ class NewsLensApp {
       if (wordsS.has(w)) overlap++;
     }
     const overlapRatio = overlap / Math.min(wordsT.size, wordsS.size);
-    return overlapRatio >= 0.8;
+    return overlapRatio >= 0.7;
   }
 
   createNewsCardElement(item, topicRes) {
     const card = document.createElement("article");
     const s = item.summary;
     const isCompact = this.viewMode === "compact";
-    const isDuplicate = this.isTitleAndSummaryDuplicate(item.title, s?.line1_what);
+    const cleanTitle = this.cleanHeadline(item.title);
+    const lineWhat = (s && s.line1_what) ? s.line1_what.trim() : "";
+    const isDuplicate = this.isTitleAndSummaryDuplicate(cleanTitle, lineWhat);
+
+    // High-density single analyzed sentence (30-50 words)
+    let singleAnalyzedLine = "";
+    if (lineWhat && !isDuplicate) {
+      singleAnalyzedLine = `<strong>${cleanTitle}</strong> — <span class="story-desc">${lineWhat}</span>`;
+    } else if (lineWhat) {
+      singleAnalyzedLine = `<strong>${lineWhat}</strong>`;
+    } else {
+      singleAnalyzedLine = `<strong>${cleanTitle}</strong>`;
+    }
 
     if (isCompact) {
-      // Clean Compact Mode - If title and summary are duplicate, omit the redundant trailing text
+      // 1-Line Analyzed Intelligence View (30-50 words converged analytical takeaway with zero title repetition)
       card.className = "news-card compact-item";
-      const descHtml = (!isDuplicate && s?.line1_what) ? ` — <span class="story-desc">${s.line1_what}</span>` : "";
       card.innerHTML = `
         <div class="compact-row">
           <div class="compact-main">
             <div class="compact-headline-line">
-              <strong>${item.title}</strong>${descHtml}
+              ${singleAnalyzedLine}
             </div>
             <div class="compact-meta">
               <span class="source-badge">${item.publisher}</span>
@@ -737,7 +813,7 @@ class NewsLensApp {
             </div>
           </div>
           <div class="compact-actions">
-            <button class="btn-card-audio" title="Read Aloud">🔊</button>
+            <button class="btn-card-audio" title="Read Aloud Analysis">🔊</button>
             <a href="${item.url}" target="_blank" rel="noopener" class="card-source-link" title="Open Source">
               Source ↗
             </a>
@@ -745,21 +821,29 @@ class NewsLensApp {
         </div>
       `;
     } else {
-      // Clean Expanded Card Mode - If duplicate, omit redundant summary card section
+      // 5-Lines Analysis View
       card.className = "news-card";
-      const summaryHtml = (!isDuplicate && s?.line1_what)
-        ? `<div class="card-story-summary">${s.line1_what}</div>`
-        : "";
+      const summaryText = lineWhat || cleanTitle;
       card.innerHTML = `
         <div class="card-header">
           <div class="card-meta-row">
             <span class="source-badge">${item.publisher}</span>
             <span class="pub-date">${item.published_date}</span>
           </div>
-          <h3 class="card-title">${item.title}</h3>
+          <h3 class="card-title">${cleanTitle}</h3>
         </div>
 
-        ${summaryHtml}
+        <div class="card-story-summary">
+          <strong>Analyzed Takeaway:</strong> ${summaryText}
+        </div>
+
+        ${s && s.line2_context ? `
+        <div class="card-5lines-breakdown">
+          <p><strong>Context:</strong> ${s.line2_context}</p>
+          <p><strong>Impact:</strong> ${s.line3_impact}</p>
+          <p><strong>Key Data:</strong> ${s.line4_data}</p>
+          <p><strong>Outlook:</strong> ${s.line5_outlook}</p>
+        </div>` : ""}
 
         <div class="card-footer">
           <button class="btn-card-audio">🔊 Read Aloud</button>
@@ -774,8 +858,8 @@ class NewsLensApp {
     const btnAudio = card.querySelector(".btn-card-audio");
     btnAudio?.addEventListener("click", (e) => {
       e.stopPropagation();
-      const speechText = item.natural_speech || (isDuplicate ? item.title : `${item.title}. ${s?.line1_what || ""}`);
-      window.voiceEngine.playNaturalSpeech(speechText, item.title);
+      const speechText = item.natural_speech || lineWhat || cleanTitle;
+      window.voiceEngine.playNaturalSpeech(speechText, cleanTitle);
     });
 
     return card;

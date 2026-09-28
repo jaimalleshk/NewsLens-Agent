@@ -146,6 +146,11 @@ def test_sqlite_cache_digest(temp_cache: SQLiteNewsCache):
     assert len(cached_digest.topic_results) == 1
     assert cached_digest.topic_results[0].items[0].title == "Central Bank Holds Rates Steady"
 
+    # Test get_latest_digest
+    latest = temp_cache.get_latest_digest()
+    assert latest is not None
+    assert latest.start_date == "2026-09-20"
+
 
 def test_sqlite_cache_clear(temp_cache: SQLiteNewsCache):
     summary = NewsSummary5Lines(
