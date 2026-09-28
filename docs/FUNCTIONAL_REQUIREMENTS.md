@@ -60,6 +60,11 @@ NewsLens includes an **Executive Cross-Sector Macro Synthesis**, **Edge-TTS Spok
   - Clicking `🔄` triggers an immediate live search and AI synthesis for **only that individual topic tab** (~2–3s) without re-running or wiping cached intelligence for the other 12 sectors.
   - Real-time spinning animation and progressive banner updates provide immediate visual feedback.
   - Automatically updates the tab's badge count, saves the refreshed `TopicNewsResult` to SQLite, and updates active card views in real time.
+* **FR-1.5: Drag-and-Drop & Visual Topic Re-Ordering**:
+  - The Config Management modal provides full drag-and-drop handles (`⠿`) and 1-click `▲`/`▼` controls on every topic card.
+  - Users can effortlessly re-order topics to prioritize specific sectors.
+  - In-progress form edits (titles, strategy prompts, search keywords) are preserved during re-ordering.
+  - Persisting changes updates `config.user.yaml` and synchronizes the left sidebar navigation tab order instantly.
 
 ---
 
