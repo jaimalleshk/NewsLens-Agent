@@ -744,16 +744,19 @@ class NewsLensApp {
   cleanHeadline(rawTitle) {
     if (!rawTitle) return "";
     let cleaned = rawTitle.trim();
-    // Strip common question and clickbait prefixes
+    cleaned = cleaned.replace(/\?+$/, "").trim();
+
     const patterns = [
-      /^(What to know about|Everything you need to know about|Here is what to know about|Here'?s what you need to know about|Here is everything to know about)\s+/i,
-      /^(Why|How|What|Where|When|Who)\s+(is|are|did|does|do|will|can|should|to)\s+/i,
-      /^(Here'?s why|Here'?s how|This is why|Here are the|Top \d+ reasons why|Here is why|Here are \d+ things to know about)\s+/i
+      /^(What (you|we|to) (need to )?know about|Everything (you|we)?\s*(need to )?know about|Here('?s| is) (what to know about|what you need to know about|everything to know about|what happened (with|at|to)?))\s+/i,
+      /^(Here('?s| is) (why|how|what)|This is why|This is how|Here are (the|\d+)|Top \d+ (reasons why|things to know about|\w+ to know))\s+/i,
+      /^(Is|Are|Will|Can|Could|Should|Did|Does|Do|Has|Have|Would)\s+/i,
+      /^(Why|How|What|Where|When|Who)\s+(is|are|did|does|do|will|can|could|should|has|have|to)\s+/i,
+      /^(Why|How|What)\s+/i
     ];
     for (const pat of patterns) {
       cleaned = cleaned.replace(pat, "").trim();
     }
-    cleaned = cleaned.replace(/[?.:\s]+$/, "");
+    cleaned = cleaned.replace(/[\?:\.\s]+$/, "");
     if (cleaned.length > 0) {
       cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
     }
@@ -816,22 +819,10 @@ class NewsLensApp {
     const s = item.summary;
     const isDetailed = this.viewMode === "full";
     const cleanTitle = this.cleanHeadline(item.title);
-    const lineWhat = (s && s.line1_what) ? s.line1_what.trim() : "";
-    const isDuplicate = this.isTitleAndSummaryDuplicate(cleanTitle, lineWhat);
+    const lineWhat = (s && s.line1_what) ? this.cleanHeadline(s.line1_what.trim()) : "";
 
-    // Compute standalone high-signal intelligence tweet (~35-50 words)
-    let tweetBodyText = "";
-    if (lineWhat && !isDuplicate) {
-      if (lineWhat.length >= 80) {
-        tweetBodyText = lineWhat;
-      } else {
-        tweetBodyText = `<strong>${cleanTitle}</strong> — ${lineWhat}`;
-      }
-    } else if (lineWhat) {
-      tweetBodyText = lineWhat;
-    } else {
-      tweetBodyText = cleanTitle;
-    }
+    // The tweet body is the pure standalone synthesized intelligence statement (~35-50 words)
+    let tweetBodyText = lineWhat || cleanTitle;
 
     const topicIcon = topicRes?.topic_icon || "📰";
     const publisher = item.publisher || "Verified Intelligence";

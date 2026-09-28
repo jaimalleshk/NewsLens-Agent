@@ -19,7 +19,7 @@ Content:
 YOUR TASK:
 Synthesize this news story into a punchy, high-signal Twitter/X-style intelligence post (35-50 words / ~240 characters) that gives the FULL picture in one standalone message. Adhere strictly to this JSON format:
 {{
-  "title": "Clear, declarative executive statement explaining who did what and the outcome.",
+  "title": "Clear, declarative executive statement stating what happened and the core finding (NEVER a question).",
   "line1_what": "A self-contained, high-impact Twitter/X-style intelligence post (35-50 words) delivering the complete picture: key entity, concrete metrics/dollar values, core action, and why it matters so the reader never needs to click or read the article.",
   "line2_context": "Root cause, backstory, or underlying market/technological drivers.",
   "line3_impact": "Direct strategic implication for the industry, economy, or ecosystem.",
@@ -29,9 +29,10 @@ Synthesize this news story into a punchy, high-signal Twitter/X-style intelligen
 }}
 
 CRITICAL RULES:
-- FORMAT AS A COMPLETE TWITTER-STYLE INTELLIGENCE POST: Deliver the full story in a single, high-density, analytical message.
-- NEVER use question formats or clickbait teasers (e.g. NEVER 'What to know about...', 'How to...', 'Why is...', '5 things to know'). Always write declarative factual statements.
-- Line 1 MUST be a 35 to 50 word rich, converged analytical statement that completely explains the event, actors, metrics, and significance.
+- BAN ALL QUESTION HEADLINES & TEASERS: If the source article title or premise is a question (e.g. 'Why is X happening?', 'What to know about Y', 'How does Z work?', 'Is Company A acquiring B?', 'Will rates drop?'), DO NOT REPEAT THE QUESTION!
+- READ & ANALYZE THE ARTICLE: Extract the direct factual answer, key decisions, metrics, and outcomes from the article body to formulate the final intelligence messaging.
+- "title": Must be the declarative factual outcome / analytical answer (e.g. "Federal Reserve Lowers Benchmark Rates by 25 bps as Inflation Cools" instead of "Why is the Fed cutting rates?").
+- "line1_what": Must be a standalone Twitter/X-style intelligence post (35-50 words) with the full story—key entity, numbers/dollars, action, and strategic significance.
 - Maintain maximum precision and density of insight without fluff.
 - Output ONLY valid JSON.
 """

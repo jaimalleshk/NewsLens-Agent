@@ -113,22 +113,31 @@ class NewsAnalystAgent:
 
 
     def clean_question_headline(self, title: str) -> str:
-        """Sanitize question-style headlines and clickbait teasers into declarative news statements."""
+        """Sanitize question-style headlines, clickbait teasers, and inquiry framing into declarative news statements."""
         if not title:
             return ""
         cleaned = title.strip()
+        cleaned = re.sub(r"\?+$", "", cleaned).strip()
+
         patterns = [
-            r"^(What to know about|Everything you need to know about|Here is what to know about|Here'?s what you need to know about|Here is everything to know about)\s+",
-            r"^(Why|How|What|Where|When|Who)\s+(is|are|did|does|do|will|can|should|to)\s+",
-            r"^(Here'?s why|Here'?s how|This is why|Here are the|Top \d+ reasons why|Here is why|Here are \d+ things to know about)\s+",
+            # "What to know about...", "Everything you need to know about...", "Here is what to know about..."
+            r"^(What (you|we|to) (need to )?know about|Everything (you|we)?\s*(need to )?know about|Here('?s| is) (what to know about|what you need to know about|everything to know about|what happened (with|at|to)?))\s+",
+            # "Here's why...", "This is why...", "Top 5 reasons why..."
+            r"^(Here('?s| is) (why|how|what)|This is why|This is how|Here are (the|\d+)|Top \d+ (reasons why|things to know about|\w+ to know))\s+",
+            # Auxiliary question verbs at start: Is/Are/Will/Can/Could/Should/Did/Does/Do/Has/Have/Would
+            r"^(Is|Are|Will|Can|Could|Should|Did|Does|Do|Has|Have|Would)\s+",
+            # Wh- question starts with auxiliary: Why is/are/did, How did/does/to, What is/are/did
+            r"^(Why|How|What|Where|When|Who)\s+(is|are|did|does|do|will|can|could|should|has|have|to)\s+",
+            # Wh- followed directly by noun/pronoun: "Why Nvidia is...", "How OpenAI plans to...", "What Microsoft announced..."
+            r"^(Why|How|What)\s+",
         ]
         for p in patterns:
             cleaned = re.sub(p, "", cleaned, flags=re.IGNORECASE).strip()
-        cleaned = cleaned.rstrip("?.: ")
+
+        cleaned = re.sub(r"[\?:\.\s]+$", "", cleaned).strip()
         if cleaned:
             cleaned = cleaned[0].upper() + cleaned[1:]
         return cleaned or title
-
 
     def _fast_extractive_summary(
         self,
@@ -143,19 +152,29 @@ class NewsAnalystAgent:
         primary_article = cluster[0]
         cleaned_title = self.clean_question_headline(primary_article.title)
         content_snippet = (primary_article.snippet or primary_article.title).strip()
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", content_snippet) if len(s.strip()) > 15]
 
-        # Construct substantive converged 30-50 word analytical summary
-        lead = sentences[0] if len(sentences) > 0 else cleaned_title
-        context_extra = sentences[1] if len(sentences) > 1 else f"Developments tracked with strategic relevance to {topic.title}."
-        converged_what = f"{cleaned_title}: {lead} Strategic analysis highlights major shifts across {topic.title} infrastructure and market execution."
+        raw_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", content_snippet) if len(s.strip()) > 15]
+        clean_sentences = []
+        for s in raw_sentences:
+            c = self.clean_question_headline(s)
+            if c and not c.endswith("?"):
+                clean_sentences.append(c)
+
+        lead = clean_sentences[0] if len(clean_sentences) > 0 else cleaned_title
+
+        norm_t = re.sub(r"[^\w\s]", "", cleaned_title.lower())
+        norm_l = re.sub(r"[^\w\s]", "", lead.lower())
+        if norm_t in norm_l or norm_l in norm_t:
+            tweet_text = f"{lead}. Confirmed reporting from {primary_article.source} reflects accelerating shifts in {topic.title}."
+        else:
+            tweet_text = f"{cleaned_title}: {lead}. Analysis highlights operational and strategic impact across {topic.title}."
 
         summary = NewsSummary5Lines(
-            line1_what=converged_what,
-            line2_context=context_extra,
-            line3_impact=f"Significant competitive and operational impact for {topic.title} stakeholders.",
+            line1_what=tweet_text,
+            line2_context=f"Ongoing market and infrastructure developments across {topic.title}.",
+            line3_impact=f"Direct strategic relevance for {topic.title} ecosystem stakeholders.",
             line4_data=f"Verified reporting sourced directly from {primary_article.source}.",
-            line5_outlook="Ongoing developments and follow-up milestones actively monitored."
+            line5_outlook="Milestones and subsequent reporting actively tracked."
         )
 
         additional = [

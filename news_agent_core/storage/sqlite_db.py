@@ -13,7 +13,8 @@ from ..search.base import RawArticle, NewsItem, TopicNewsResult, AggregatedNewsD
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DB_PATH = Path("data/newslens.db")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "newslens.db"
 
 
 class SQLiteNewsCache:
