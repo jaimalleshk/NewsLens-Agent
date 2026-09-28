@@ -26,8 +26,18 @@ class NaturalVoiceBriefer:
         "ryan_british": "en-GB-RyanNeural",                # British executive male
     }
 
-    def __init__(self, config: Optional[VoiceConfig] = None):
+    def __init__(self, config: Optional[VoiceConfig] = None, cache_dir: Optional[str | Path] = None):
         self.config = config or VoiceConfig()
+        import hashlib
+        self._hashlib = hashlib
+        self.cache_dir = Path(cache_dir or (Path(__file__).resolve().parent.parent.parent / "data" / "audio_cache"))
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self._memory_cache: dict[str, bytes] = {}
+
+    def _get_cache_key(self, clean_text: str, voice: str, rate: str, pitch: str) -> str:
+        """Generate SHA-256 cache key for given voice parameters."""
+        raw_key = f"{clean_text}__{voice}__{rate}__{pitch}"
+        return self._hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
     def clean_text_for_speech(self, text: str) -> str:
         """Sanitize markdown, URLs, symbols, emojis, and formatting into fluid, natural spoken text."""
@@ -120,7 +130,7 @@ class NaturalVoiceBriefer:
         rate: Optional[str] = None,
         pitch: Optional[str] = None
     ) -> bytes:
-        """Synthesize natural speech audio and return MP3 bytes with chunked streaming support."""
+        """Synthesize natural speech audio and return MP3 bytes with caching & parallel chunk streaming."""
         clean_text = self.clean_text_for_speech(text)
         if not clean_text:
             return b""
@@ -129,31 +139,63 @@ class NaturalVoiceBriefer:
         selected_rate = rate or self.config.tts_rate
         selected_pitch = pitch or self.config.tts_pitch
 
-        chunks = self._split_text_into_chunks(clean_text, max_chunk_chars=1800)
+        # Check in-memory cache first (<1ms)
+        cache_key = self._get_cache_key(clean_text, selected_voice, selected_rate, selected_pitch)
+        if cache_key in self._memory_cache:
+            return self._memory_cache[cache_key]
+
+        # Check persistent disk cache (<5ms)
+        cache_file = self.cache_dir / f"{cache_key}.mp3"
+        if cache_file.exists():
+            try:
+                cached_bytes = cache_file.read_bytes()
+                if cached_bytes:
+                    if len(self._memory_cache) > 200:
+                        self._memory_cache.clear()
+                    self._memory_cache[cache_key] = cached_bytes
+                    return cached_bytes
+            except Exception as e:
+                logger.debug(f"Error reading audio cache file: {e}")
+
+        # Chunk text and synthesize in parallel
+        chunks = self._split_text_into_chunks(clean_text, max_chunk_chars=1200)
 
         async def synthesize_chunk(chunk_text: str) -> bytes:
-            communicate = edge_tts.Communicate(
-                text=chunk_text,
-                voice=selected_voice,
-                rate=selected_rate,
-                pitch=selected_pitch
-            )
-            audio_pieces = []
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_pieces.append(chunk["data"])
-            return b"".join(audio_pieces)
-
-        audio_chunks = []
-        for c in chunks:
             try:
-                chunk_bytes = await synthesize_chunk(c)
-                if chunk_bytes:
-                    audio_chunks.append(chunk_bytes)
-            except Exception as e:
-                logger.warning(f"Error synthesizing TTS chunk: {e}")
+                communicate = edge_tts.Communicate(
+                    text=chunk_text,
+                    voice=selected_voice,
+                    rate=selected_rate,
+                    pitch=selected_pitch
+                )
+                audio_pieces = []
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_pieces.append(chunk["data"])
+                return b"".join(audio_pieces)
+            except Exception as ex:
+                logger.warning(f"Error synthesizing TTS chunk: {ex}")
+                return b""
 
-        return b"".join(audio_chunks)
+        if len(chunks) == 1:
+            full_audio = await synthesize_chunk(chunks[0])
+        else:
+            # Parallel synthesis of all chunks concurrently
+            chunk_results = await asyncio.gather(*[synthesize_chunk(c) for c in chunks])
+            full_audio = b"".join(chunk_results)
+
+        if full_audio:
+            # Store to disk and memory cache
+            try:
+                cache_file.write_bytes(full_audio)
+            except Exception as e:
+                logger.debug(f"Error writing audio cache file: {e}")
+
+            if len(self._memory_cache) > 200:
+                self._memory_cache.clear()
+            self._memory_cache[cache_key] = full_audio
+
+        return full_audio
 
     async def save_speech_to_file(
         self,
