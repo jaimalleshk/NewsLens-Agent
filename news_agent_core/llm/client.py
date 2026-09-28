@@ -135,10 +135,12 @@ class UnifiedLLMClient:
                     })
 
             # Check if this is CROSS_TOPIC_EXECUTIVE_DIGEST_PROMPT
-            if "Cross-Topic Executive Digest" in prompt or "Chief Intelligence Officer" in prompt:
+            if "Cross-Topic Executive Digest" in prompt or "Chief Intelligence Officer" in prompt or "macro-level executive" in prompt:
                 return json.dumps({
-                    "executive_overview": "Cross-sector news intelligence indicates active momentum across AI foundational architectures, semiconductor supply chains, and macroeconomic rate adjustments. Organizations are prioritizing production inference efficiency and sovereign technological capabilities.",
-                    "executive_audio_script": "Good evening. Across our primary intelligence sectors today, AI models and semiconductor accelerators are seeing rapid production adoption, while macroeconomic data continues to guide corporate capital expenditures."
+                    "macro_synthesis": "Cross-sector news intelligence indicates active momentum across foundational AI architectures, cloud infrastructure expansion, and macroeconomic rate adjustments. Organizations are accelerating production inference efficiency and sovereign technology capabilities while regional enterprise activity demonstrates resilient capital deployment.",
+                    "executive_overview": "Cross-sector news intelligence indicates active momentum across foundational AI architectures, cloud infrastructure expansion, and macroeconomic rate adjustments. Organizations are accelerating production inference efficiency and sovereign technology capabilities while regional enterprise activity demonstrates resilient capital deployment.",
+                    "executive_audio_script": "Good evening. Across our primary intelligence sectors today, AI models and cloud infrastructure are seeing rapid production adoption, while macroeconomic data continues to guide corporate capital expenditures.",
+                    "executive_audio_intro": "Good evening. Welcome to your comprehensive cross-sector intelligence broadcast covering all monitored topic verticals."
                 })
 
             # News story 5-line summary fallback

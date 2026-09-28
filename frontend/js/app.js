@@ -87,30 +87,34 @@ class NewsLensApp {
 
       // 1. Introductory Overview Section
       if (this.currentDigest.executive_overview) {
-        const cleanOverviewText = this.currentDigest.executive_overview
-          .replace(/[#*`_\[\]]/g, "")
-          .replace(/\n\n+/g, " ")
-          .trim();
+        // Extract macro synthesis paragraphs for the introductory broadcast
+        const macroMatch = this.currentDigest.executive_overview.match(/### 📊 Macro Strategic Cross-Sector Synthesis\s*([\s\S]+?)(?=\n---|\Z)/);
+        let introText = macroMatch ? macroMatch[1] : this.currentDigest.executive_overview;
+        introText = introText.replace(/[#*`_\[\]•]/g, "").replace(/\n+/g, " ").trim();
+        if (introText.length > 500) {
+          introText = introText.slice(0, 500) + "...";
+        }
+
         sections.push({
           id: "overview",
           title: "Executive Cross-Topic Overview",
           icon: "🌐",
-          script: `Welcome to your Executive News Intelligence Briefing for ${this.currentDigest.start_date} to ${this.currentDigest.end_date}. ${cleanOverviewText}`,
+          script: `Welcome to your Executive News Intelligence Briefing for ${this.currentDigest.start_date} to ${this.currentDigest.end_date}. ${introText}`,
           storiesCount: this.currentDigest.topic_results.reduce((acc, t) => acc + (t.items ? t.items.length : 0), 0)
         });
       }
 
-      // 2. Add each topic section with its rich spoken script
+      // 2. Add each topic section with its complete full-coverage spoken script
       this.currentDigest.topic_results.forEach(topicRes => {
         if (topicRes.items && topicRes.items.length > 0) {
           let script = topicRes.executive_audio_script;
           const isGeneric = !script || script.length < 80 || script.includes("Intelligence synthesis completed") || script.includes("Intelligence summary for current");
           if (isGeneric) {
             const storyParts = topicRes.items.map((it, idx) => {
-              const transition = idx === 0 ? "First," : (idx === 1 ? "Next in headlines," : (idx === 2 ? "In related news," : "Also today,"));
+              const transition = idx === 0 ? "Starting with" : (idx === topicRes.items.length - 1 && topicRes.items.length > 1 ? "Finally," : "Next in headlines,");
               return `${transition} ${it.title}. ${it.summary.line1_what}`;
             });
-            script = `Here is your news briefing for ${topicRes.topic_title}. ${storyParts.join(" ")} That concludes updates for ${topicRes.topic_title}.`;
+            script = `Here is your news briefing for ${topicRes.topic_title}, covering ${topicRes.items.length} developments. ${storyParts.join(" ")} That concludes all updates for ${topicRes.topic_title}.`;
           }
 
           sections.push({
@@ -134,12 +138,12 @@ class NewsLensApp {
       if (topicRes) {
         let script = topicRes.executive_audio_script;
         const isGeneric = !script || script.length < 80 || script.includes("Intelligence synthesis completed") || script.includes("Intelligence summary for current");
-        if (isGeneric) {
-          const storyParts = (topicRes.items || []).map((it, idx) => {
-            const transition = idx === 0 ? "First," : (idx === 1 ? "Next in headlines," : (idx === 2 ? "In related news," : "Also today,"));
+        if (isGeneric && topicRes.items && topicRes.items.length > 0) {
+          const storyParts = topicRes.items.map((it, idx) => {
+            const transition = idx === 0 ? "Starting with" : (idx === topicRes.items.length - 1 && topicRes.items.length > 1 ? "Finally," : "Next in headlines,");
             return `${transition} ${it.title}. ${it.summary.line1_what}`;
           });
-          script = `Here is your news briefing for ${topicRes.topic_title}. ${storyParts.join(" ")} That concludes updates for ${topicRes.topic_title}.`;
+          script = `Here is your news briefing for ${topicRes.topic_title}, covering ${topicRes.items.length} developments. ${storyParts.join(" ")} That concludes all updates for ${topicRes.topic_title}.`;
         }
         window.voiceEngine.playNaturalSpeech(
           script,
@@ -748,10 +752,14 @@ class NewsLensApp {
   renderSimpleMarkdown(text) {
     if (!text) return "";
     return text
-      .replace(/### (.*)/g, '<h3 style="color:var(--accent-cyan); margin:0.85rem 0 0.4rem;">$1</h3>')
-      .replace(/## (.*)/g, '<h2 style="color:var(--accent-purple); margin:1rem 0 0.5rem;">$1</h2>')
+      .replace(/#### (.*)/g, '<h4 class="overview-section-h4">$1</h4>')
+      .replace(/### (.*)/g, '<h3 class="overview-section-h3">$1</h3>')
+      .replace(/## (.*)/g, '<h2 class="overview-section-h2">$1</h2>')
+      .replace(/# (.*)/g, '<h1 class="overview-section-h1">$1</h1>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/^[•\-\*]\s+(.*)/gm, '<div class="overview-story-bullet"><span class="bullet-dot">•</span> <span class="bullet-text">$1</span></div>')
+      .replace(/^---$/gm, '<hr class="overview-divider">')
       .replace(/\n\n/g, '<p style="margin-bottom:0.75rem;">')
       .replace(/\n/g, '<br>');
   }

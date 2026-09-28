@@ -52,23 +52,22 @@ OUTPUT: Return only the spoken script text.
 """
 
 CROSS_TOPIC_EXECUTIVE_DIGEST_PROMPT = """You are the Chief Intelligence Officer.
-Deliver a comprehensive, balanced Executive Intelligence Digest synthesizing news across ALL active topic verticals ({topics_list}) for dates {start_date} to {end_date}.
+Deliver a macro-level executive cross-sector intelligence synthesis across ALL active topic verticals ({topics_list}) for dates {start_date} to {end_date}.
 
 TOPIC BREAKDOWNS & STORIES:
 {all_topic_summaries}
 
 YOUR TASK:
-1. Executive Written Synthesis in clean Markdown:
-   - Provide a 2-sentence macro synthesis connecting the overarching cross-sector themes.
-   - You MUST include a dedicated subsection with bold key points for EACH active topic in {topics_list}.
-   - Do NOT focus solely on Artificial Intelligence; ensure equal executive attention to Finance & Business, Enterprise IT, Politics & Immigration, Local Houston/Tomball news, Real Estate, and Health.
-2. Spoken Executive Audio Briefing Script:
-   - Write a complete conversational audio broadcast script that naturally flows through all topics in sequence.
+1. Executive Macro Strategic Synthesis:
+   - Provide a 2-3 paragraph macro executive synthesis connecting overarching cross-sector themes, technological inflection points, capital allocations, and regulatory developments.
+   - Balance coverage across all active verticals in {topics_list} (AI, Enterprise IT, Finance & Markets, Healthcare, Regional/Houston, Policy/Macro).
+2. Spoken Executive Audio Intro:
+   - Write an engaging 2-3 sentence conversational anchor introduction welcoming the listener to the comprehensive intelligence broadcast.
 
 Return strictly in JSON format:
 {{
-  "executive_overview": "Comprehensive multi-topic strategic synthesis in Markdown with dedicated sections for each topic",
-  "executive_audio_script": "Natural spoken audio broadcast script covering all topics"
+  "macro_synthesis": "2-3 paragraphs of strategic cross-sector synthesis connecting all topic verticals.",
+  "executive_audio_intro": "Natural conversational anchor introduction welcoming the listener to the multi-sector broadcast."
 }}
 """
 
