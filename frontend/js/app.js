@@ -860,7 +860,6 @@ class NewsLensApp {
     const isDetailed = this.viewMode === "full";
     const publisher = item.publisher || "Verified Intelligence";
     const handle = publisher.toLowerCase().replace(/[^a-z0-9]/g, "") || "intel";
-    const topicIcon = topicRes?.topic_icon || "📰";
 
     const cleanTitle = this.cleanHeadline(item.title);
     const lineWhat = (s && s.line1_what) ? this.cleanHeadline(s.line1_what.trim()) : "";
@@ -892,26 +891,10 @@ class NewsLensApp {
       tweetBodyText += ".";
     }
 
+    const dateDisplay = item.published_date ? item.published_date.slice(0, 10) : "";
+
     card.className = "tweet-card";
     card.innerHTML = `
-      <div class="tweet-header">
-        <div class="tweet-author-info">
-          <span class="tweet-topic-icon">${topicIcon}</span>
-          <span class="tweet-publisher-name">${publisher}</span>
-          <span class="tweet-handle">@${handle || 'intel'}</span>
-          <span class="tweet-dot">·</span>
-          <span class="tweet-date">${item.published_date || ''}</span>
-        </div>
-        <div class="tweet-top-actions">
-          <button class="btn-tweet-action btn-card-audio" title="Read Aloud Analysis">
-            <span>🔊</span>
-          </button>
-          <a href="${item.url}" target="_blank" rel="noopener" class="btn-tweet-action" title="Open Source Article">
-            <span>🔗 Source ↗</span>
-          </a>
-        </div>
-      </div>
-
       <div class="tweet-body">
         ${tweetBodyText}
       </div>
@@ -923,6 +906,19 @@ class NewsLensApp {
         <div class="intel-metric-pill"><span>Key Data:</span> ${lineData}</div>
         <div class="intel-metric-pill"><span>Outlook:</span> ${lineOutlook}</div>
       </div>` : ''}
+
+      <div class="tweet-card-footer">
+        <a href="${item.url}" target="_blank" rel="noopener" class="tweet-source-tag" title="Open source article: ${publisher}">
+          <span class="source-icon">🔗</span>
+          <span class="source-name">${publisher}</span>
+          ${handle ? `<span class="source-handle">@${handle}</span>` : ''}
+          ${dateDisplay ? `<span class="source-dot">·</span><span class="source-date">${dateDisplay}</span>` : ''}
+          <span class="source-arrow">↗</span>
+        </a>
+        <button class="btn-tweet-action btn-card-audio" title="Read Aloud Analysis">
+          <span>🔊</span> <span class="action-label">Listen</span>
+        </button>
+      </div>
     `;
 
     // Read Aloud click event
