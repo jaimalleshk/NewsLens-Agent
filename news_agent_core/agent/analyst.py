@@ -177,20 +177,27 @@ class NewsAnalystAgent:
                 clean_sentences.append(c)
 
         lead = clean_sentences[0] if len(clean_sentences) > 0 else cleaned_title
+        second = clean_sentences[1] if len(clean_sentences) > 1 else ""
+        third = clean_sentences[2] if len(clean_sentences) > 2 else ""
 
         norm_t = re.sub(r"[^\w\s]", "", cleaned_title.lower())
         norm_l = re.sub(r"[^\w\s]", "", lead.lower())
         if norm_t in norm_l or norm_l in norm_t:
-            tweet_text = f"{lead}. Confirmed reporting from {primary_article.source} reflects accelerating shifts in {topic.title}."
+            tweet_text = f"{lead}. {second}".strip() if second else lead
         else:
-            tweet_text = f"{cleaned_title}: {lead}. Analysis highlights operational and strategic impact across {topic.title}."
+            tweet_text = f"{cleaned_title}. {lead}".strip()
+            if second and len(tweet_text) < 140:
+                tweet_text = f"{tweet_text} {second}".strip()
+
+        if not tweet_text.endswith("."):
+            tweet_text += "."
 
         summary = NewsSummary5Lines(
             line1_what=tweet_text,
-            line2_context=f"Ongoing market and infrastructure developments across {topic.title}.",
-            line3_impact=f"Direct strategic relevance for {topic.title} ecosystem stakeholders.",
-            line4_data=f"Verified reporting sourced directly from {primary_article.source}.",
-            line5_outlook="Milestones and subsequent reporting actively tracked."
+            line2_context=second or f"Context and drivers monitored for {topic.title}.",
+            line3_impact=third or f"Strategic implications for {topic.title} ecosystem participants.",
+            line4_data=primary_article.source,
+            line5_outlook="Ongoing sector monitoring and follow-up reporting tracked."
         )
 
         additional = [

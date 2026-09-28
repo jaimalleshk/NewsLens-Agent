@@ -18,11 +18,29 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "newslens.db"
 
 
+def _clean_text_boilerplate(text: str) -> str:
+    """Strip out artificial filler phrases and boilerplate noise."""
+    if not text:
+        return ""
+    cleaned = re.sub(r"Verified reporting (sourced )?directly from [^.\n]+[.]?", "", text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"Verified reporting from [^.\n]+?[.]", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"Verified reporting from [^.\n]+?$", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"Confirmed reporting from [^.\n]+?[.]", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"Confirmed reporting from [^.\n]+?$", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"[a-z0-9\.\-]+\s+details key (architectural|operational) milestones[^.\n]*[.]?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"details key (architectural|operational) milestones[^.\n]*[.]?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"reflects accelerating (infrastructure|shifts)[^.\n]*[.]?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"reflects key industry developments[^.\n]*[.]?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"Analysis highlights operational and strategic impact across [^.\n]+[.]?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
 def _clean_text_headline(title: str) -> str:
     """Sanitize question-style headlines and clickbait inquiry formats into declarative statements."""
     if not title:
         return "Sector Intelligence Update"
-    cleaned = title.strip()
+    cleaned = _clean_text_boilerplate(title)
     cleaned = re.sub(r"\bA\.I\.\b", "AI", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\bU\.S\.\b", "US", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\bU\.K\.\b", "UK", cleaned, flags=re.IGNORECASE)
@@ -59,8 +77,17 @@ def _clean_loaded_item(it_dict: dict) -> dict:
     if "title" in it_dict:
         it_dict["title"] = _clean_text_headline(it_dict["title"])
     if "summary" in it_dict and isinstance(it_dict["summary"], dict):
-        if "line1_what" in it_dict["summary"]:
-            it_dict["summary"]["line1_what"] = _clean_text_headline(it_dict["summary"]["line1_what"])
+        s = it_dict["summary"]
+        for key in ["line1_what", "line2_context", "line3_impact", "line4_data", "line5_outlook"]:
+            if key in s and isinstance(s[key], str):
+                cleaned = _clean_text_boilerplate(s[key])
+                if key == "line1_what":
+                    cleaned = _clean_text_headline(cleaned)
+                s[key] = cleaned
+    if "natural_speech" in it_dict and isinstance(it_dict["natural_speech"], str):
+        it_dict["natural_speech"] = _clean_text_headline(_clean_text_boilerplate(it_dict["natural_speech"]))
+    if "speech_content" in it_dict and isinstance(it_dict["speech_content"], str):
+        it_dict["speech_content"] = _clean_text_headline(_clean_text_boilerplate(it_dict["speech_content"]))
     return it_dict
 
 

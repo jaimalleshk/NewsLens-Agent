@@ -681,8 +681,16 @@ class NewsLensApp {
     document.getElementById("digestDateBadge").textContent =
       `Date Window: ${this.currentDigest.start_date} to ${this.currentDigest.end_date} | Total Indexed: ${this.currentDigest.total_articles_indexed} chunks`;
 
+    // Extract solely the high-level macro strategic synthesis for the top header box
+    let macroOverview = this.currentDigest.executive_overview || "";
+    if (macroOverview.includes("### 📋 Comprehensive Section")) {
+      macroOverview = macroOverview.split("### 📋 Comprehensive Section")[0].trim();
+    } else if (macroOverview.includes("---")) {
+      macroOverview = macroOverview.split("---")[0].trim();
+    }
+
     const overviewDiv = document.getElementById("overviewSummaryContent");
-    overviewDiv.innerHTML = this.renderSimpleMarkdown(this.currentDigest.executive_overview);
+    overviewDiv.innerHTML = this.renderSimpleMarkdown(macroOverview);
 
     const grid = document.getElementById("allTopicsDigestGrid");
     grid.className = `news-cards-grid ${this.viewMode === "compact" ? "compact-layout" : ""}`;
@@ -744,6 +752,21 @@ class NewsLensApp {
   cleanHeadline(rawTitle) {
     if (!rawTitle) return "";
     let cleaned = rawTitle.trim();
+
+    // Strip boilerplate phrases
+    cleaned = cleaned.replace(/Verified reporting (sourced )?directly from [^.\n]+[.]?/gi, "")
+                     .replace(/Verified reporting from [^.\n]+?[.]/gi, "")
+                     .replace(/Verified reporting from [^.\n]+?$/gi, "")
+                     .replace(/Confirmed reporting from [^.\n]+?[.]/gi, "")
+                     .replace(/Confirmed reporting from [^.\n]+?$/gi, "")
+                     .replace(/[a-z0-9\.\-]+\s+details key (architectural|operational) milestones[^.\n]*[.]?/gi, "")
+                     .replace(/details key (architectural|operational) milestones[^.\n]*[.]?/gi, "")
+                     .replace(/reflects accelerating (infrastructure|shifts)[^.\n]*[.]?/gi, "")
+                     .replace(/reflects key industry developments[^.\n]*[.]?/gi, "")
+                     .replace(/Analysis highlights operational and strategic impact across [^.\n]+[.]?/gi, "")
+                     .replace(/\s+/g, " ")
+                     .trim();
+
     // Normalize acronyms
     cleaned = cleaned.replace(/\bA\.I\.\b/gi, "AI")
                      .replace(/\bU\.S\.\b/gi, "US")
@@ -835,30 +858,39 @@ class NewsLensApp {
     const card = document.createElement("article");
     const s = item.summary;
     const isDetailed = this.viewMode === "full";
+    const publisher = item.publisher || "Verified Intelligence";
+    const handle = publisher.toLowerCase().replace(/[^a-z0-9]/g, "") || "intel";
+    const topicIcon = topicRes?.topic_icon || "📰";
+
     const cleanTitle = this.cleanHeadline(item.title);
     const lineWhat = (s && s.line1_what) ? this.cleanHeadline(s.line1_what.trim()) : "";
+    const lineContext = (s && s.line2_context) ? this.cleanHeadline(s.line2_context.trim()) : "";
+    const lineImpact = (s && s.line3_impact) ? this.cleanHeadline(s.line3_impact.trim()) : "";
+    const lineData = (s && s.line4_data) ? this.cleanHeadline(s.line4_data.trim()) : "";
+    const lineOutlook = (s && s.line5_outlook) ? this.cleanHeadline(s.line5_outlook.trim()) : "";
 
     // The tweet body is purely the standalone synthesized intelligence statement (~35-50 words)
-    let tweetBodyText = "";
-    if (lineWhat && lineWhat.length >= 50) {
-      tweetBodyText = lineWhat;
-    } else if (cleanTitle && cleanTitle.length >= 50) {
-      tweetBodyText = cleanTitle;
-    } else if (lineWhat && cleanTitle && !this.isTitleAndSummaryDuplicate(cleanTitle, lineWhat)) {
-      tweetBodyText = `${cleanTitle}: ${lineWhat}. Verified reporting from ${publisher} details key operational milestones and strategic sector impact.`;
-    } else {
-      const base = lineWhat || cleanTitle || "Strategic intelligence update tracked";
-      tweetBodyText = `${base}. Confirmed reporting from ${publisher} reflects key industry developments and strategic ecosystem implications.`;
+    let tweetBodyText = lineWhat;
+    if (!tweetBodyText || tweetBodyText.length < 30) {
+      if (cleanTitle && lineWhat && !this.isTitleAndSummaryDuplicate(cleanTitle, lineWhat)) {
+        tweetBodyText = `${cleanTitle}. ${lineWhat}`;
+      } else {
+        tweetBodyText = lineWhat || cleanTitle || "Sector intelligence update tracked";
+      }
     }
 
-    tweetBodyText = tweetBodyText.replace(/[\?]+$/, "").trim();
+    // Enrich brief items with actual context/impact substance (zero boilerplate)
+    if (tweetBodyText.length < 80) {
+      const extra = lineContext || lineImpact || lineData;
+      if (extra && !this.isTitleAndSummaryDuplicate(tweetBodyText, extra)) {
+        tweetBodyText = `${tweetBodyText}. ${extra}`;
+      }
+    }
+
+    tweetBodyText = this.cleanHeadline(tweetBodyText).replace(/[\?]+$/, "").trim();
     if (tweetBodyText && !tweetBodyText.endsWith(".")) {
       tweetBodyText += ".";
     }
-
-    const topicIcon = topicRes?.topic_icon || "📰";
-    const publisher = item.publisher || "Verified Intelligence";
-    const handle = publisher.toLowerCase().replace(/[^a-z0-9]/g, "") || "intel";
 
     card.className = "tweet-card";
     card.innerHTML = `
@@ -884,12 +916,12 @@ class NewsLensApp {
         ${tweetBodyText}
       </div>
 
-      ${isDetailed && s && s.line2_context ? `
+      ${isDetailed && s && lineContext ? `
       <div class="tweet-intel-breakdown">
-        <div class="intel-metric-pill"><span>Context:</span> ${s.line2_context}</div>
-        <div class="intel-metric-pill"><span>Impact:</span> ${s.line3_impact}</div>
-        <div class="intel-metric-pill"><span>Key Data:</span> ${s.line4_data}</div>
-        <div class="intel-metric-pill"><span>Outlook:</span> ${s.line5_outlook}</div>
+        <div class="intel-metric-pill"><span>Context:</span> ${lineContext}</div>
+        <div class="intel-metric-pill"><span>Impact:</span> ${lineImpact}</div>
+        <div class="intel-metric-pill"><span>Key Data:</span> ${lineData}</div>
+        <div class="intel-metric-pill"><span>Outlook:</span> ${lineOutlook}</div>
       </div>` : ''}
     `;
 
@@ -897,7 +929,7 @@ class NewsLensApp {
     const btnAudio = card.querySelector(".btn-card-audio");
     btnAudio?.addEventListener("click", (e) => {
       e.stopPropagation();
-      const speechText = item.natural_speech || lineWhat || cleanTitle;
+      const speechText = item.natural_speech || tweetBodyText || cleanTitle;
       window.voiceEngine.playNaturalSpeech(speechText, cleanTitle);
     });
 

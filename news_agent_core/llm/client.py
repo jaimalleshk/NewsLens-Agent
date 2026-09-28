@@ -217,22 +217,25 @@ class UnifiedLLMClient:
                     clean_sentences.append(c)
 
             lead = clean_sentences[0] if len(clean_sentences) > 0 else clean_title
+            second = clean_sentences[1] if len(clean_sentences) > 1 else ""
+            third = clean_sentences[2] if len(clean_sentences) > 2 else ""
 
-            # Ensure standalone 35-50 word analytical intelligence tweet
             norm_t = re.sub(r"[^\w\s]", "", clean_title.lower())
             norm_l = re.sub(r"[^\w\s]", "", lead.lower())
             if norm_t in norm_l or norm_l in norm_t:
-                s1 = f"{lead}. Verified reporting from {raw_source} details key architectural milestones, verified specifications, and strategic ecosystem implications."
+                s1 = f"{lead}. {second}".strip() if second else lead
             else:
-                s1 = f"{clean_title}: {lead}. Verified reporting from {raw_source} reflects accelerating infrastructure shifts and measurable industry impact."
+                s1 = f"{clean_title}. {lead}".strip()
+                if second and len(s1) < 140:
+                    s1 = f"{s1} {second}".strip()
 
-            s2 = clean_sentences[1] if len(clean_sentences) > 1 else f"Coverage reported by {raw_source} highlights underlying drivers and operational factors."
-            s3 = clean_sentences[2] if len(clean_sentences) > 2 else "Strategic implications focus on competitive positioning, scalability, and market adoption."
-            s4 = clean_sentences[3] if len(clean_sentences) > 3 else f"Key industry disclosures and data points verified from {raw_source} reports."
-            s5 = clean_sentences[4] if len(clean_sentences) > 4 else "Market observers expect follow-up execution milestones and deployment metrics in the coming cycle."
+            if not s1.endswith("."):
+                s1 += "."
 
-            # Pure standalone intelligence statement without duplicating title
-            speech = s1
+            s2 = second or f"Context and background tracked across sector reporting."
+            s3 = third or f"Strategic industry relevance and operational implications."
+            s4 = clean_sentences[3] if len(clean_sentences) > 3 else raw_source
+            s5 = clean_sentences[4] if len(clean_sentences) > 4 else "Sector developments and follow-up milestones actively monitored."
 
             res = {
                 "title": clean_title,
@@ -241,7 +244,7 @@ class UnifiedLLMClient:
                 "line3_impact": s3,
                 "line4_data": s4,
                 "line5_outlook": s5,
-                "natural_speech": speech
+                "natural_speech": s1
             }
             return json.dumps(res)
 
