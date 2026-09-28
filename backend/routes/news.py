@@ -64,12 +64,12 @@ async def get_latest_digest(
             agent.latest_digest = cached
             return cached
 
-    if agent.latest_digest:
-        return agent.latest_digest
-
     cached_latest = agent.cache.get_latest_digest()
     if cached_latest:
         agent.latest_digest = cached_latest
         return cached_latest
+
+    if agent.latest_digest:
+        return agent.latest_digest
 
     raise HTTPException(status_code=404, detail="No cached news digest available yet")
