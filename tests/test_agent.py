@@ -140,7 +140,7 @@ async def test_full_coverage_executive_digest_and_spoken_broadcast():
     script_ai = agent._build_topic_spoken_broadcast(topic1, [item1, item2], "2026-09-20", "2026-09-27")
     assert "NVIDIA" in script_ai
     assert "OpenAI" in script_ai
-    assert "Here is your executive news briefing for AI Technology" in script_ai
+    assert "Here is your news briefing for AI Technology" in script_ai
     assert "That completes all updates for AI Technology" in script_ai
 
     # Test master executive digest synthesis

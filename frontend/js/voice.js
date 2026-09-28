@@ -85,7 +85,7 @@ class VoiceEngine {
 
     const item = this.playlist[this.currentIndex];
     const total = this.playlist.length;
-    const speed = this.speedSelect ? parseFloat(this.speedSelect.value) : 1.25;
+    const speed = this.speedSelect ? parseFloat(this.speedSelect.value) : 1.0;
 
     if (this.sectionTracker) {
       this.sectionTracker.textContent = `Section ${this.currentIndex + 1} of ${total}`;
@@ -118,7 +118,7 @@ class VoiceEngine {
   /**
    * Play text as natural broadcast audio synthesized via FastAPI Edge-TTS
    */
-  async playNaturalSpeech(text, title = "Intelligence Audio Briefing", playbackSpeed = 1.25) {
+  async playNaturalSpeech(text, title = "Intelligence Audio Briefing", playbackSpeed = 1.0) {
     if (!text || !text.trim()) return;
 
     this.banner.classList.remove("hidden");

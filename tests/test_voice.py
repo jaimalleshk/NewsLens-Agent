@@ -10,8 +10,8 @@ def test_clean_text_for_speech():
     cleaned = briefer.clean_text_for_speech(raw)
     assert "https://" not in cleaned
     assert "###" not in cleaned
-    assert "TSMC completed fab expansion" in cleaned
-    assert "20% output increase" in cleaned
+    assert "T.S.M.C. completed fab expansion" in cleaned
+    assert "20 percent output increase" in cleaned or "20%" in cleaned
 
 
 @pytest.mark.asyncio

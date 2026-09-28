@@ -110,11 +110,13 @@ class NewsLensApp {
           let script = topicRes.executive_audio_script;
           const isGeneric = !script || script.length < 80 || script.includes("Intelligence synthesis completed") || script.includes("Intelligence summary for current");
           if (isGeneric) {
+            const cleanTitle = (topicRes.topic_title || "").replace(/^[^\w\s]+/, "").trim();
             const storyParts = topicRes.items.map((it, idx) => {
               const transition = idx === 0 ? "Starting with" : (idx === topicRes.items.length - 1 && topicRes.items.length > 1 ? "Finally," : "Next in headlines,");
-              return `${transition} ${it.title}. ${it.summary.line1_what}`;
+              const text = (it.summary && it.summary.line1_what) ? it.summary.line1_what.trim() : it.title.trim();
+              return `${transition} ${text.replace(/\.+$/, "")}.`;
             });
-            script = `Here is your news briefing for ${topicRes.topic_title}, covering ${topicRes.items.length} developments. ${storyParts.join(" ")} That concludes all updates for ${topicRes.topic_title}.`;
+            script = `Here is your news briefing for ${cleanTitle}, covering ${topicRes.items.length} developments. ${storyParts.join(" ")} That concludes all updates for ${cleanTitle}.`;
           }
 
           sections.push({
@@ -139,11 +141,13 @@ class NewsLensApp {
         let script = topicRes.executive_audio_script;
         const isGeneric = !script || script.length < 80 || script.includes("Intelligence synthesis completed") || script.includes("Intelligence summary for current");
         if (isGeneric && topicRes.items && topicRes.items.length > 0) {
+          const cleanTitle = (topicRes.topic_title || "").replace(/^[^\w\s]+/, "").trim();
           const storyParts = topicRes.items.map((it, idx) => {
             const transition = idx === 0 ? "Starting with" : (idx === topicRes.items.length - 1 && topicRes.items.length > 1 ? "Finally," : "Next in headlines,");
-            return `${transition} ${it.title}. ${it.summary.line1_what}`;
+            const text = (it.summary && it.summary.line1_what) ? it.summary.line1_what.trim() : it.title.trim();
+            return `${transition} ${text.replace(/\.+$/, "")}.`;
           });
-          script = `Here is your news briefing for ${topicRes.topic_title}, covering ${topicRes.items.length} developments. ${storyParts.join(" ")} That concludes all updates for ${topicRes.topic_title}.`;
+          script = `Here is your news briefing for ${cleanTitle}, covering ${topicRes.items.length} developments. ${storyParts.join(" ")} That concludes all updates for ${cleanTitle}.`;
         }
         window.voiceEngine.playNaturalSpeech(
           script,

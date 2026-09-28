@@ -30,7 +30,7 @@ class NaturalVoiceBriefer:
         self.config = config or VoiceConfig()
 
     def clean_text_for_speech(self, text: str) -> str:
-        """Sanitize markdown, URLs, symbols, and formatting into fluid spoken text."""
+        """Sanitize markdown, URLs, symbols, emojis, and formatting into fluid, natural spoken text."""
         if not text:
             return ""
 
@@ -43,9 +43,44 @@ class NaturalVoiceBriefer:
         text = re.sub(r"`([^`]+)`", r"\1", text)
         text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
 
-        # Replace bullet points with brief natural pauses
+        # Strip emojis and special decorative glyphs
+        text = re.sub(r"[\U00010000-\U0010ffff]", "", text)
+        text = re.sub(r"[🌐🤖💼📈🏛️📍🏡🩺⚡🎙️🔑★•▪●]", " ", text)
+
+        # Remove bullet labels like What:, Context:, etc.
         text = re.sub(r"^[•\-\*]\s*(What|Context|Impact|Key Data|Outlook):\s*", "", text, flags=re.MULTILINE)
         text = re.sub(r"^[•\-\*]\s*", "", text, flags=re.MULTILINE)
+
+        # Expand currency and financial abbreviations for natural spoken reading
+        text = re.sub(r"\$(\d+(?:\.\d+)?)\s*[Bb](?:illion)?\b", r"\1 billion dollars", text)
+        text = re.sub(r"\$(\d+(?:\.\d+)?)\s*[Mm](?:illion)?\b", r"\1 million dollars", text)
+        text = re.sub(r"\$(\d+(?:\.\d+)?)\s*[Kk]\b", r"\1 thousand dollars", text)
+        text = re.sub(r"\$(\d+(?:,\d+)*(?:\.\d+)?)", r"\1 dollars", text)
+
+        # Acronyms for clear natural pronunciation
+        acronyms = {
+            r"\bAI\b": "A.I.",
+            r"\bISD\b": "I.S.D.",
+            r"\bCEO\b": "C.E.O.",
+            r"\bCTO\b": "C.T.O.",
+            r"\bGPU\b": "G.P.U.",
+            r"\bGPUs\b": "G.P.U.s",
+            r"\bLLM\b": "L.L.M.",
+            r"\bLLMs\b": "L.L.M.s",
+            r"\bAPI\b": "A.P.I.",
+            r"\bAPIs\b": "A.P.I.s",
+            r"\bTSMC\b": "T.S.M.C.",
+        }
+        for pat, rep in acronyms.items():
+            text = re.sub(pat, rep, text)
+
+        # Deduplicate back-to-back identical sentences
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+        deduped = []
+        for s in sentences:
+            if not deduped or s.lower() != deduped[-1].lower():
+                deduped.append(s)
+        text = " ".join(deduped)
 
         # Clean multiple spaces and linebreaks
         text = re.sub(r"\s+", " ", text).strip()

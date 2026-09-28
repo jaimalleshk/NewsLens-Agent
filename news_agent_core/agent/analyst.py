@@ -237,47 +237,71 @@ class NewsAnalystAgent:
         start_date: str,
         end_date: str
     ) -> str:
-        """Construct an articulate, natural news anchor broadcast covering 100% of topic stories."""
+        """Construct an articulate, natural, broadcast-quality news anchor script with zero title repetition."""
         if not items:
-            return f"No major news events were identified for {topic.title} in the selected date window."
+            return f"No major news events were identified for {topic.title} in this date window."
 
+        # Professional news opening (strip emojis for pristine TTS pronunciation)
+        topic_clean_name = re.sub(r"^[^\w\s]+", "", topic.title).strip()
         segments = [
-            f"Here is your executive news briefing for {topic.title}, covering {len(items)} key developments."
+            f"Here is your news briefing for {topic_clean_name}, covering {len(items)} key developments."
         ]
-        transitions = [
-            "Starting with our lead development,",
-            "Next in headlines,",
-            "In related developments,",
-            "Turning to another major update,",
-            "Also in the sector,",
-            "Meanwhile,",
-            "Additionally,",
-            "In other key news,",
+
+        anchor_transitions = [
+            "Leading off,",
+            "Next in key developments,",
+            "Turning to related news,",
+            "In other significant reporting,",
+            "Meanwhile in the sector,",
+            "Additionally today,",
             "Furthermore,",
-            "Rounding out this section,"
+            "On another front,",
+            "Rounding out our coverage,"
         ]
+
         for idx, it in enumerate(items):
             if idx == 0:
-                trans = "Starting with"
+                trans = "Leading off,"
             elif idx == len(items) - 1 and len(items) > 1:
                 trans = "Finally,"
             else:
-                trans = transitions[min(idx, len(transitions) - 1)]
+                trans = anchor_transitions[min(idx, len(anchor_transitions) - 1)]
 
-            clean_title = it.title.strip().rstrip(".")
-            clean_what = it.summary.line1_what.strip().rstrip(".")
+            clean_what = it.summary.line1_what.strip() if it.summary else ""
+            clean_title = it.title.strip()
+            speech_cand = (it.natural_speech or "").strip()
 
-            speech_narrative = (it.natural_speech or "").strip()
-            if speech_narrative and len(speech_narrative) > 25 and "{" not in speech_narrative and "line1" not in speech_narrative:
-                speech_narrative = re.sub(r"^(In [^,]+,\s*)", "", speech_narrative)
-                if clean_title.lower() not in speech_narrative.lower()[:len(clean_title) + 10]:
-                    segments.append(f"{trans} {clean_title}. {speech_narrative}")
+            # Clean out any JSON or template artifacts
+            if speech_cand and ("{" in speech_cand or "line1" in speech_cand or len(speech_cand) < 20):
+                speech_cand = ""
+
+            # Determine the single best narrative sentence (never repeat title + line1)
+            selected_story_text = ""
+            if speech_cand:
+                # Remove redundant prefix like "In local news," if present
+                clean_speech = re.sub(r"^(In [^,]+,\s*)", "", speech_cand).strip()
+                selected_story_text = clean_speech
+            elif clean_what:
+                # Check if clean_what already includes the core subject of the title
+                title_words = set(re.findall(r"\w{4,}", clean_title.lower()))
+                what_words = set(re.findall(r"\w{4,}", clean_what.lower()))
+                overlap = len(title_words.intersection(what_words))
+
+                if overlap >= 2 or len(clean_what) > 35:
+                    selected_story_text = clean_what
                 else:
-                    segments.append(f"{trans} {speech_narrative}")
+                    selected_story_text = f"{clean_title}, with reports highlighting {clean_what}"
             else:
-                segments.append(f"{trans} {clean_title}. {clean_what}.")
+                selected_story_text = clean_title
 
-        segments.append(f"That completes all updates for {topic.title}.")
+            # Ensure proper punctuation and capitalization
+            selected_story_text = selected_story_text.rstrip(".") + "."
+            if selected_story_text:
+                selected_story_text = selected_story_text[0].upper() + selected_story_text[1:]
+
+            segments.append(f"{trans} {selected_story_text}")
+
+        segments.append(f"That completes all updates for {topic_clean_name}.")
         return " ".join(segments)
 
     async def _synthesize_executive_digest(
@@ -287,6 +311,13 @@ class NewsAnalystAgent:
         end_date: str
     ) -> Tuple[str, str]:
         """Synthesize a complete point-by-point cross-topic executive briefing and master audio script."""
+        # Ensure topic_results are strictly in configured topic order (AI -> Enterprise -> Finance -> Policy -> Local Houston -> Real Estate -> Health)
+        enabled_topics = [t for t in self.config.topics if t.enabled]
+        if not enabled_topics:
+            enabled_topics = self.config.topics
+        topic_order_map = {t.id: idx for idx, t in enumerate(enabled_topics)}
+        topic_results.sort(key=lambda r: topic_order_map.get(r.topic_id, 999))
+
         summaries_for_overview = []
         total_stories = 0
         for res in topic_results:
@@ -362,15 +393,16 @@ class NewsAnalystAgent:
 
         exec_overview = "\n".join(overview_blocks)
 
-        # Build master broadcast covering every section and every story
+        # Build master broadcast covering every section and every story in order
         if not audio_intro or len(audio_intro.strip()) < 40:
             audio_intro = f"Welcome to your complete executive news intelligence broadcast covering all {len(topic_results)} sectors from {start_date} to {end_date}."
 
         master_broadcast_segments = [audio_intro]
         for res in topic_results:
             if res.items and res.executive_audio_script:
+                clean_sec_title = re.sub(r"^[^\w\s]+", "", res.topic_title).strip()
                 master_broadcast_segments.append(
-                    f"Now turning to our reporting for {res.topic_title}. {res.executive_audio_script}"
+                    f"Now turning to our reporting for {clean_sec_title}. {res.executive_audio_script}"
                 )
         master_broadcast_segments.append("That concludes your full executive cross-sector intelligence broadcast.")
         full_executive_audio = " ".join(master_broadcast_segments)
@@ -440,7 +472,7 @@ class NewsAnalystAgent:
             topic_audio_script = f"No major news stories were identified for {topic.title} in the selected time period."
         else:
             stories_bullets = "\n\n".join([
-                f"- Story {idx}: {it.title}\n  Headline takeaway: {it.summary.line1_what}"
+                f"- Story {idx}: {it.title}\n  Summary: {it.summary.line1_what}"
                 for idx, it in enumerate(valid_items, 1)
             ])
 
@@ -450,24 +482,24 @@ Deliver a complete, engaging, natural spoken news broadcast covering the "{topic
 NEWS STORIES TO NARRATE:
 {stories_bullets}
 
-REQUIREMENTS:
-- Speak directly to the listener in a natural, professional news broadcast tone.
-- Clearly present each news story concisely and smoothly in order.
-- Do NOT mention or use meta-labels like "What:", "Context:", "Strategic Impact:", "Data:", or "Outlook:".
-- Use natural spoken transitions ("Turning first to...", "Next in headlines...", "In related developments...", "Meanwhile...", "Looking ahead...").
-- Do NOT use markdown headers, asterisks, or bullet points. Output only the natural spoken narrative script.
+CRITICAL RULES:
+- Speak directly to the listener as a live professional news anchor in a natural conversational flow.
+- Synthesize each story into ONE concise, fluent spoken sentence.
+- NEVER repeat the headline and then repeat the same sentence. Speak each development once cleanly.
+- Use natural spoken transitions ("Leading off,", "Next in headlines,", "Turning to related developments,", "Meanwhile,", "Looking ahead,").
+- Do NOT use markdown headers, asterisks, meta-labels, or bullet points. Output only the spoken script.
 """
 
             topic_audio_script = await self.llm.generate_completion(
                 prompt=broadcast_prompt,
-                system_prompt="You are a professional executive news anchor. Deliver a complete spoken broadcast script."
+                system_prompt="You are a professional executive news anchor. Deliver a fluid, non-repetitive spoken broadcast script."
             )
 
-            # Ensure comprehensive spoken narrative covering all stories in topic without omission
-            min_expected_len = len(valid_items) * 35
+            # Ensure comprehensive spoken narrative covering all stories in topic without omission or duplicate phrases
+            min_expected_len = len(valid_items) * 30
             is_insufficient = (
                 not topic_audio_script
-                or len(topic_audio_script.strip()) < max(100, min_expected_len)
+                or len(topic_audio_script.strip()) < max(80, min_expected_len)
                 or "Produce an ultra-precise" in topic_audio_script
                 or "Intelligence synthesis completed" in topic_audio_script
                 or "Intelligence summary for current inquiries" in topic_audio_script
@@ -567,7 +599,7 @@ REQUIREMENTS:
                 "topic": result.model_dump()
             }
 
-        # Generate overarching comprehensive executive overview and audio script across all items
+        # Generate overarching comprehensive executive overview and audio script across all items (with strict topic ordering)
         exec_overview, full_executive_audio = await self._synthesize_executive_digest(
             topic_results, start_date, end_date
         )
