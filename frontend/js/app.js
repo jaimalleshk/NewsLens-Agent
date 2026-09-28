@@ -467,17 +467,26 @@ class NewsLensApp {
     if (countEl) countEl.textContent = `${totalActive} Active`;
 
     // 1. Executive Overview Tab
-    const overviewTab = document.createElement("button");
+    const overviewTab = document.createElement("div");
     overviewTab.className = `tab-item ${this.activeTopicId === "overview" ? "active" : ""}`;
     const allCount = this.currentDigest ? this.currentDigest.topic_results.reduce((acc, t) => acc + (t.items ? t.items.length : 0), 0) : 0;
     overviewTab.innerHTML = `
       <div class="tab-title-group">
         <span>🌐</span>
-        <span>Executive Overview</span>
+        <span class="tab-label">Executive Overview</span>
       </div>
-      ${allCount > 0 ? `<span class="tab-badge-count">${allCount}</span>` : ""}
+      <div class="tab-item-actions">
+        ${allCount > 0 ? `<span class="tab-badge-count">${allCount}</span>` : ""}
+        <button class="btn-tab-refresh" title="Refresh All Topics (Global Ingestion)" aria-label="Refresh All">
+          <span class="refresh-icon">🔄</span>
+        </button>
+      </div>
     `;
-    overviewTab.addEventListener("click", () => this.switchTab("overview"));
+    overviewTab.querySelector(".tab-title-group").addEventListener("click", () => this.switchTab("overview"));
+    overviewTab.querySelector(".btn-tab-refresh").addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.runNewsAggregation(true);
+    });
     tabList.appendChild(overviewTab);
 
     // 2. Dynamic Topic Tabs from Config
@@ -486,16 +495,26 @@ class NewsLensApp {
         if (!topic.enabled) return;
 
         const count = this.getTopicArticleCount(topic.id);
-        const tab = document.createElement("button");
+        const tab = document.createElement("div");
         tab.className = `tab-item ${this.activeTopicId === topic.id ? "active" : ""}`;
         tab.innerHTML = `
           <div class="tab-title-group">
             <span>${topic.icon || "📰"}</span>
-            <span>${topic.title}</span>
+            <span class="tab-label">${topic.title}</span>
           </div>
-          ${count > 0 ? `<span class="tab-badge-count">${count}</span>` : ""}
+          <div class="tab-item-actions">
+            ${count > 0 ? `<span class="tab-badge-count">${count}</span>` : ""}
+            <button class="btn-tab-refresh" title="Refresh only ${topic.title} (Live Search & AI Synthesis)" aria-label="Refresh ${topic.title}">
+              <span class="refresh-icon">🔄</span>
+            </button>
+          </div>
         `;
-        tab.addEventListener("click", () => this.switchTab(topic.id));
+        tab.querySelector(".tab-title-group").addEventListener("click", () => this.switchTab(topic.id));
+        const btnRefresh = tab.querySelector(".btn-tab-refresh");
+        btnRefresh.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.refreshSingleTopic(topic.id, btnRefresh);
+        });
         tabList.appendChild(tab);
 
         if (quickSelect) {
@@ -508,11 +527,96 @@ class NewsLensApp {
     }
   }
 
-
   getTopicArticleCount(topicId) {
     if (!this.currentDigest) return 0;
     const t = this.currentDigest.topic_results.find(x => x.topic_id === topicId);
     return t ? t.items.length : 0;
+  }
+
+  async refreshSingleTopic(topicId, btnElement) {
+    const topic = this.config?.topics.find(t => t.id === topicId);
+    const topicName = topic ? topic.title : topicId;
+    const startDate = document.getElementById("startDate")?.value || "";
+    const endDate = document.getElementById("endDate")?.value || "";
+
+    if (btnElement) {
+      btnElement.classList.add("spinning");
+      btnElement.disabled = true;
+    }
+
+    const banner = document.getElementById("streamingProgressBanner");
+    const bannerText = document.getElementById("streamingProgressText");
+    if (banner) banner.classList.remove("hidden");
+    if (bannerText) bannerText.textContent = `⚡ Refreshing ${topicName}... (Live Search & DeepSeek AI Synthesis)`;
+
+    try {
+      const response = await fetch("/api/news/topic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic_id: topicId,
+          start_date: startDate,
+          end_date: endDate,
+          force_refresh: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to refresh topic (HTTP ${response.status})`);
+      }
+
+      const freshResult = await response.json();
+
+      // Update currentDigest in memory
+      if (!this.currentDigest) {
+        this.currentDigest = {
+          start_date: startDate,
+          end_date: endDate,
+          executive_overview: "Topic intelligence updated.",
+          executive_audio_script: "",
+          topic_results: [freshResult],
+          total_articles_indexed: freshResult.items ? freshResult.items.length : 0
+        };
+      } else {
+        const existingIdx = this.currentDigest.topic_results.findIndex(t => t.topic_id === topicId);
+        if (existingIdx >= 0) {
+          this.currentDigest.topic_results[existingIdx] = freshResult;
+        } else {
+          this.currentDigest.topic_results.push(freshResult);
+        }
+      }
+
+      // Re-render tabs for count update
+      this.renderDynamicTabs();
+
+      // If this topic is currently viewed, re-render the topic pane immediately
+      if (this.activeTopicId === topicId) {
+        this.renderTopicPane(topicId);
+      } else if (this.activeTopicId === "overview") {
+        this.renderOverviewPane();
+      }
+
+      if (bannerText) {
+        bannerText.textContent = `✓ Refreshed ${topicName}: ${freshResult.items ? freshResult.items.length : 0} verified intelligence stories synthesized.`;
+      }
+      setTimeout(() => {
+        if (banner) banner.classList.add("hidden");
+      }, 3500);
+
+    } catch (err) {
+      console.error(`Error refreshing single topic ${topicId}:`, err);
+      if (bannerText) {
+        bannerText.textContent = `⚠️ Error refreshing ${topicName}: ${err.message}`;
+      }
+      setTimeout(() => {
+        if (banner) banner.classList.add("hidden");
+      }, 4000);
+    } finally {
+      if (btnElement) {
+        btnElement.classList.remove("spinning");
+        btnElement.disabled = false;
+      }
+    }
   }
 
   switchTab(topicId) {

@@ -157,40 +157,53 @@ class NaturalVoiceBriefer:
             except Exception as e:
                 logger.debug(f"Error reading audio cache file: {e}")
 
-        # Chunk text and synthesize in parallel
-        chunks = self._split_text_into_chunks(clean_text, max_chunk_chars=1200)
+        # Chunk text (using 2500 chars for optimal Edge-TTS throughput)
+        chunks = self._split_text_into_chunks(clean_text, max_chunk_chars=2500)
 
-        async def synthesize_chunk(chunk_text: str) -> bytes:
+        if len(chunks) <= 1:
             try:
                 communicate = edge_tts.Communicate(
-                    text=chunk_text,
+                    text=clean_text,
                     voice=selected_voice,
                     rate=selected_rate,
                     pitch=selected_pitch
                 )
-                audio_pieces = []
-                async for chunk in communicate.stream():
-                    if chunk["type"] == "audio":
-                        audio_pieces.append(chunk["data"])
-                return b"".join(audio_pieces)
-            except Exception as ex:
-                logger.warning(f"Error synthesizing TTS chunk: {ex}")
-                return b""
-
-        if len(chunks) == 1:
-            full_audio = await synthesize_chunk(chunks[0])
+                await communicate.save(str(cache_file))
+                full_audio = cache_file.read_bytes() if cache_file.exists() else b""
+            except Exception as e:
+                logger.warning(f"Error synthesizing single TTS audio: {e}")
+                full_audio = b""
         else:
-            # Parallel synthesis of all chunks concurrently
-            chunk_results = await asyncio.gather(*[synthesize_chunk(c) for c in chunks])
+            import tempfile
+            async def synthesize_chunk_to_bytes(chunk_text: str, idx: int) -> bytes:
+                tmp_chunk = Path(tempfile.gettempdir()) / f"tts_chunk_{cache_key}_{idx}.mp3"
+                try:
+                    communicate = edge_tts.Communicate(
+                        text=chunk_text,
+                        voice=selected_voice,
+                        rate=selected_rate,
+                        pitch=selected_pitch
+                    )
+                    await communicate.save(str(tmp_chunk))
+                    data = tmp_chunk.read_bytes() if tmp_chunk.exists() else b""
+                    try:
+                        tmp_chunk.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    return data
+                except Exception as ex:
+                    logger.warning(f"Error synthesizing TTS chunk {idx}: {ex}")
+                    return b""
+
+            chunk_results = await asyncio.gather(*[synthesize_chunk_to_bytes(c, i) for i, c in enumerate(chunks)])
             full_audio = b"".join(chunk_results)
+            if full_audio:
+                try:
+                    cache_file.write_bytes(full_audio)
+                except Exception as e:
+                    logger.debug(f"Error writing audio cache file: {e}")
 
         if full_audio:
-            # Store to disk and memory cache
-            try:
-                cache_file.write_bytes(full_audio)
-            except Exception as e:
-                logger.debug(f"Error writing audio cache file: {e}")
-
             if len(self._memory_cache) > 200:
                 self._memory_cache.clear()
             self._memory_cache[cache_key] = full_audio

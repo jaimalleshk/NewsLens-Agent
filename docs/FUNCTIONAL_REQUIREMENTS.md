@@ -55,6 +55,11 @@ NewsLens includes an **Executive Cross-Sector Macro Synthesis**, **Edge-TTS Spok
   13. *Optical Computing & Silicon Photonics*
 * **FR-1.2: Dynamic YAML Persistence**: All topics, search keywords, strategy prompts, and preferences are dynamically stored in `config.user.yaml` and reloaded automatically without server restarts.
 * **FR-1.3: Keyword Management**: Users can add or remove search keywords per topic directly from the UI chip bar or via voice/chat commands.
+* **FR-1.4: Surgical Single-Topic Local Refresh**:
+  - Each topic item in the left sidebar menu features a local `🔄` refresh button.
+  - Clicking `🔄` triggers an immediate live search and AI synthesis for **only that individual topic tab** (~2–3s) without re-running or wiping cached intelligence for the other 12 sectors.
+  - Real-time spinning animation and progressive banner updates provide immediate visual feedback.
+  - Automatically updates the tab's badge count, saves the refreshed `TopicNewsResult` to SQLite, and updates active card views in real time.
 
 ---
 

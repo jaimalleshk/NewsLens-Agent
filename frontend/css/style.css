@@ -378,6 +378,54 @@ body {
   border-color: rgba(56, 189, 248, 0.4);
 }
 
+.tab-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.btn-tab-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: all 0.15s ease-in-out;
+}
+
+.tab-item:hover .btn-tab-refresh {
+  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-tab-refresh:hover {
+  opacity: 1 !important;
+  color: var(--accent-cyan) !important;
+  background: rgba(56, 189, 248, 0.2) !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  transform: scale(1.1);
+}
+
+.btn-tab-refresh.spinning .refresh-icon {
+  display: inline-block;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .sidebar-footer {
   padding: 0.75rem 1rem 1rem;
   border-top: 1px solid var(--border-color);
