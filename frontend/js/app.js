@@ -15,14 +15,20 @@ class NewsLensApp {
     this.loadConfigAndBuildTabs();
   }
 
+  formatLocalDate(d) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
   initDates() {
     const today = new Date();
-    const past7 = new Date();
+    const past7 = new Date(today);
     past7.setDate(today.getDate() - 7);
 
-    const fmt = (d) => d.toISOString().split("T")[0];
-    document.getElementById("startDate").value = fmt(past7);
-    document.getElementById("endDate").value = fmt(today);
+    document.getElementById("startDate").value = this.formatLocalDate(past7);
+    document.getElementById("endDate").value = this.formatLocalDate(today);
   }
 
   initEventListeners() {
@@ -30,21 +36,26 @@ class NewsLensApp {
     document.querySelectorAll(".btn-preset").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         document.querySelectorAll(".btn-preset").forEach(b => b.classList.remove("active"));
-        e.target.classList.add("active");
-        const days = parseInt(e.target.dataset.days, 10);
+        e.currentTarget.classList.add("active");
+        const days = parseInt(e.currentTarget.dataset.days, 10);
         const today = new Date();
-        const start = new Date();
+        const start = new Date(today);
         start.setDate(today.getDate() - days);
 
-        const fmt = (d) => d.toISOString().split("T")[0];
-        document.getElementById("startDate").value = fmt(start);
-        document.getElementById("endDate").value = fmt(today);
-        await this.loadCachedDigestIfExists();
+        document.getElementById("startDate").value = this.formatLocalDate(start);
+        document.getElementById("endDate").value = this.formatLocalDate(today);
+        await this.loadCachedDigestIfExists(true);
       });
     });
 
-    document.getElementById("startDate")?.addEventListener("change", () => this.loadCachedDigestIfExists());
-    document.getElementById("endDate")?.addEventListener("change", () => this.loadCachedDigestIfExists());
+    document.getElementById("startDate")?.addEventListener("change", () => {
+      document.querySelectorAll(".btn-preset").forEach(b => b.classList.remove("active"));
+      this.loadCachedDigestIfExists(true);
+    });
+    document.getElementById("endDate")?.addEventListener("change", () => {
+      document.querySelectorAll(".btn-preset").forEach(b => b.classList.remove("active"));
+      this.loadCachedDigestIfExists(true);
+    });
 
     // View Density Switcher (1-Line vs 5-Lines)
     const btn1Line = document.getElementById("btnView1Line");
@@ -396,7 +407,7 @@ class NewsLensApp {
     }
   }
 
-  async loadCachedDigestIfExists() {
+  async loadCachedDigestIfExists(userChangedDates = false) {
     const startDate = document.getElementById("startDate")?.value;
     const endDate = document.getElementById("endDate")?.value;
     try {
@@ -405,18 +416,12 @@ class NewsLensApp {
         url = `/api/news/latest?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
       }
       let resp = await fetch(url);
-      if (!resp.ok && url !== "/api/news/latest") {
-        // Fallback to most recent digest in SQLite
+      if (!resp.ok && !userChangedDates && url !== "/api/news/latest") {
+        // Fallback to most recent digest in SQLite on initial load, without overwriting date pickers
         resp = await fetch("/api/news/latest");
       }
       if (resp.ok) {
         this.currentDigest = await resp.json();
-        if (this.currentDigest.start_date && this.currentDigest.end_date) {
-          const sInput = document.getElementById("startDate");
-          const eInput = document.getElementById("endDate");
-          if (sInput) sInput.value = this.currentDigest.start_date;
-          if (eInput) eInput.value = this.currentDigest.end_date;
-        }
         this.renderDynamicTabs();
         if (this.activeTopicId === "overview") {
           this.renderOverviewPane();
@@ -578,6 +583,8 @@ class NewsLensApp {
           total_articles_indexed: freshResult.items ? freshResult.items.length : 0
         };
       } else {
+        this.currentDigest.start_date = startDate;
+        this.currentDigest.end_date = endDate;
         const existingIdx = this.currentDigest.topic_results.findIndex(t => t.topic_id === topicId);
         if (existingIdx >= 0) {
           this.currentDigest.topic_results[existingIdx] = freshResult;

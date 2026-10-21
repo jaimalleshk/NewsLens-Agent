@@ -49,6 +49,22 @@ async def get_topic_news(req: TopicNewsRequest):
         raise HTTPException(status_code=404, detail="Topic not found")
 
     result = await agent.analyze_topic(topic, req.start_date, req.end_date, force_refresh=req.force_refresh)
+
+    digest = agent.latest_digest or agent.cache.get_latest_digest()
+    if digest:
+        digest.start_date = req.start_date
+        digest.end_date = req.end_date
+        replaced = False
+        for idx, t in enumerate(digest.topic_results):
+            if t.topic_id == req.topic_id:
+                digest.topic_results[idx] = result
+                replaced = True
+                break
+        if not replaced:
+            digest.topic_results.append(result)
+        agent.latest_digest = digest
+        agent.cache.save_digest(digest)
+
     return result
 
 
@@ -63,6 +79,7 @@ async def get_latest_digest(
         if cached:
             agent.latest_digest = cached
             return cached
+        raise HTTPException(status_code=404, detail=f"No cached digest for {start_date} to {end_date}")
 
     cached_latest = agent.cache.get_latest_digest()
     if cached_latest:
@@ -73,3 +90,4 @@ async def get_latest_digest(
         return agent.latest_digest
 
     raise HTTPException(status_code=404, detail="No cached news digest available yet")
+
